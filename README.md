@@ -6,7 +6,7 @@ Replay failures exactly as they happened.
 Find the divergence node.
 Get replay-verified fixes.
 
-![demo](assets/demo.png)
+![Demo](./assets/demo.png)
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue) ![License](https://img.shields.io/badge/license-Apache%202.0-green) ![Zero Config](https://img.shields.io/badge/config-zero-brightgreen) ![SQLite](https://img.shields.io/badge/storage-local%20SQLite-lightgrey)
 
