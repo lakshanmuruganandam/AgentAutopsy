@@ -3,6 +3,41 @@
 import json
 from typing import Any
 
+RESET = "\033[0m"
+CYAN = "\033[96m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+GREEN = "\033[92m"
+BLUE = "\033[94m"
+RED_BOLD = "\033[91;1m"
+
+EVENT_COLORS: dict[str, str] = {
+    "llm_call": CYAN,
+    "error": RED,
+    "http_request": YELLOW,
+    "http_response": GREEN,
+    "llm_response": BLUE,
+}
+
+TAG_WIDTH = 17
+
+
+def _colored_event_tag(ev_type: str) -> str:
+    color = EVENT_COLORS.get(ev_type)
+    if color:
+        return f"{color}[{ev_type}]{RESET}"
+    return f"[{ev_type}]"
+
+
+def _print_event_line(ev_type: str, detail: str) -> None:
+    plain_tag = f"[{ev_type}]"
+    colored_tag = _colored_event_tag(ev_type)
+    padding = " " * max(0, TAG_WIDTH - len(plain_tag))
+    if detail:
+        print(f"{colored_tag}{padding}{detail}")
+    else:
+        print(colored_tag)
+
 
 def print_report(run_id: str, db: Any) -> None:
     sep = "═══════════════════════════════════"
@@ -41,12 +76,7 @@ def print_report(run_id: str, db: Any) -> None:
         else:
             detail = ""
 
-        tag = f"[{ev_type}]"
-        label = tag.ljust(17)
-        if detail:
-            print(f"{label}{detail}")
-        else:
-            print(tag)
+        _print_event_line(ev_type, detail)
 
     root_sep = "══════════════════════════════════════"
     error_index = None
@@ -64,11 +94,11 @@ def print_report(run_id: str, db: Any) -> None:
                 error_payload = {}
 
     if error_index is not None:
-        print(f"→ Divergence detected at event {error_index}")
+        print(f"{RED_BOLD}→ Divergence detected at event {error_index}{RESET}")
         error_type = error_payload.get("error_type")
         message = error_payload.get("message")
         print(root_sep)
-        print(f"Root Cause: {error_type} — {message}")
+        print(f"{RED_BOLD}Root Cause: {error_type} — {message}{RESET}")
         print(root_sep)
 
     print(sep)
