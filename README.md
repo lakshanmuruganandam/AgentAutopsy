@@ -1,6 +1,10 @@
 # AgentAutopsy
 
-When your agent fails, this tells you exactly why.
+Deterministic replay debugger for AI agents.
+
+Replay failures exactly as they happened.
+Find the divergence node.
+Get replay-verified fixes.
 
 ## Install
 
