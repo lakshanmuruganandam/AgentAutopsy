@@ -7,6 +7,7 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Zero Config](https://img.shields.io/badge/config-zero-brightgreen)
+![Works with](https://img.shields.io/badge/works%20with-OpenAI%20%2B%20Anthropic-orange)
 
 ## CLI
 
