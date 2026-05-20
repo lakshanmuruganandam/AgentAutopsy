@@ -8,6 +8,12 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Zero Config](https://img.shields.io/badge/config-zero-brightgreen)
 
+## CLI
+
+agentautopsy runs        # see all agent runs
+agentautopsy replay <id> # replay any failure
+agentautopsy stats       # fix cache stats
+
 ## Install
 
 ```bash
@@ -27,9 +33,7 @@ AgentAutopsy automatically intercepts every LLM call, detects failures, finds ro
 ## Setup
 
 Windows: `set ANTHROPIC_API_KEY=your-key-here`
-
 Mac/Linux: `export ANTHROPIC_API_KEY=your-key-here`
-
 Get your free key at console.anthropic.com
 
 ## Quick start
@@ -39,9 +43,6 @@ Create test_agent.py and paste this:
 ```python
 import agentautopsy
 agentautopsy.watch()
-from openai import OpenAI
-client = OpenAI(api_key="fake-key")
-response = client.chat.completions.create(model="gpt-4", messages=[{"role": "user", "content": "hello"}])
 ```
 
 Run: `python test_agent.py`
