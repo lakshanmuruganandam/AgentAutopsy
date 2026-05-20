@@ -49,20 +49,27 @@ def print_report(run_id: str, db: Any) -> None:
             print(tag)
 
     root_sep = "══════════════════════════════════════"
-    for row in reversed(rows):
-        if row["type"] == "error":
+    error_index = None
+    error_payload: dict[str, Any] = {}
+    for i, row in enumerate(rows, start=1):
+        if row["type"] == "error" and error_index is None:
+            error_index = i
             try:
                 error_payload = (
                     json.loads(row["payload"]) if row.get("payload") else {}
                 )
             except (json.JSONDecodeError, TypeError):
                 error_payload = {}
-            error_type = error_payload.get("error_type")
-            message = error_payload.get("message")
-            print(root_sep)
-            print(f"Root Cause: {error_type} — {message}")
-            print(root_sep)
-            break
+            if not isinstance(error_payload, dict):
+                error_payload = {}
+
+    if error_index is not None:
+        print(f"→ Divergence detected at event {error_index}")
+        error_type = error_payload.get("error_type")
+        message = error_payload.get("message")
+        print(root_sep)
+        print(f"Root Cause: {error_type} — {message}")
+        print(root_sep)
 
     print(sep)
     print(f"Total events: {len(rows)}")
