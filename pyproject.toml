@@ -15,5 +15,8 @@ dependencies = [
     "httpx",
 ]
 
+[project.scripts]
+agentautopsy = "agentautopsy.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentautopsy"]
