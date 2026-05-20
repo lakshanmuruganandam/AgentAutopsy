@@ -3,45 +3,51 @@
 When your agent fails, this tells you exactly why.
 
 ## Install
+
 ```bash
-pip install agentautopsy
+pip install git+https://github.com/Abhisekhpatel/AgentAutopsy.git
 ```
 
-## Usage
+## Setup
+
+Windows: `set ANTHROPIC_API_KEY=your-key-here`
+
+Mac/Linux: `export ANTHROPIC_API_KEY=your-key-here`
+
+Get your free key at console.anthropic.com
+
+## Quick start
+
+Create test_agent.py and paste this:
+
 ```python
 import agentautopsy
 agentautopsy.watch()
-
-# your agent code here — nothing else changes
+from openai import OpenAI
+client = OpenAI(api_key="fake-key")
+response = client.chat.completions.create(model="gpt-4", messages=[{"role": "user", "content": "hello"}])
 ```
 
-On failure, AgentAutopsy automatically:
-1. Intercepts every LLM + HTTP call
-2. Detects the exact failure node
-3. Prunes the trace to what matters
-4. Analyzes root cause and outputs a fix
-5. Verifies the fix with deterministic replay
-6. Caches the fix — same failure answered instantly next time
+Run: `python test_agent.py`
 
-## Output
-```
-[AgentAutopsy] failure detected: TimeoutError: request timed out after 30s
-FAILURE NODE: llm_call to gpt-4
-ROOT CAUSE: Request exceeded 30s threshold due to no timeout set
-FIX: Add timeout=60 and exponential backoff retry logic
-[AgentAutopsy] fix verified ✓
+## Usage
+
+```python
+import agentautopsy
+agentautopsy.watch()
+# your existing agent code here — nothing else changes
 ```
 
-## How it works
-- Zero config — one import, one function call
-- Patches openai + anthropic at import time
-- Stores full trace in SQLite — one file, zero infrastructure
-- Cassette replay makes verification 100% deterministic
-- Fix cache answers repeated failures in milliseconds
+AgentAutopsy automatically intercepts every LLM call, detects failures, finds root cause, outputs a verified fix, and caches it for next time.
+
+## Works with
+
+OpenAI, Anthropic, LangChain, any framework using openai or anthropic
 
 ## Requirements
-- Python 3.11+
-- ANTHROPIC_API_KEY environment variable
+
+Python 3.11+, ANTHROPIC_API_KEY
 
 ## License
+
 Apache 2.0
