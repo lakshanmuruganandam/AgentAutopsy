@@ -1,19 +1,28 @@
 # AgentAutopsy
 
-Deterministic replay debugger for AI agents.
+> When your agent fails, this tells you exactly why.
 
-Replay failures exactly as they happened.
-Find the divergence node.
-Get replay-verified fixes.
+![demo](assets/demo.png)
 
-![Demo](./assets/demo.png)
-
-![Python](https://img.shields.io/badge/python-3.11+-blue) ![License](https://img.shields.io/badge/license-Apache%202.0-green) ![Zero Config](https://img.shields.io/badge/config-zero-brightgreen) ![SQLite](https://img.shields.io/badge/storage-local%20SQLite-lightgrey)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+![License](https://img.shields.io/badge/license-Apache%202.0-green)
+![Zero Config](https://img.shields.io/badge/config-zero-brightgreen)
 
 ## Install
+
 ```bash
 pip install git+https://github.com/Abhisekhpatel/AgentAutopsy.git
 ```
+
+## Usage
+
+```python
+import agentautopsy
+agentautopsy.watch()
+# your existing agent code here — nothing else changes
+```
+
+AgentAutopsy automatically intercepts every LLM call, detects failures, finds root cause, outputs a verified fix, and caches it for next time.
 
 ## Setup
 
@@ -36,16 +45,6 @@ response = client.chat.completions.create(model="gpt-4", messages=[{"role": "use
 ```
 
 Run: `python test_agent.py`
-
-## Usage
-
-```python
-import agentautopsy
-agentautopsy.watch()
-# your existing agent code here — nothing else changes
-```
-
-AgentAutopsy automatically intercepts every LLM call, detects failures, finds root cause, outputs a verified fix, and caches it for next time.
 
 ## Works with
 
