@@ -51,6 +51,8 @@ def watch():
         replay_result = replay(run_id, db, analysis)
         if replay_result["verified"]:
             print(f"\n[AgentAutopsy] fix verified ✓")
+            print("✓ Replay passed")
+            print("✓ Failure resolved")
             store_fix(db, result["error_type"], result["message"], analysis, verified=True)
         else:
             print(f"\n[AgentAutopsy] fix not verified — review manually")

@@ -48,5 +48,21 @@ def print_report(run_id: str, db: Any) -> None:
         else:
             print(tag)
 
+    root_sep = "══════════════════════════════════════"
+    for row in reversed(rows):
+        if row["type"] == "error":
+            try:
+                error_payload = (
+                    json.loads(row["payload"]) if row.get("payload") else {}
+                )
+            except (json.JSONDecodeError, TypeError):
+                error_payload = {}
+            error_type = error_payload.get("error_type")
+            message = error_payload.get("message")
+            print(root_sep)
+            print(f"Root Cause: {error_type} — {message}")
+            print(root_sep)
+            break
+
     print(sep)
     print(f"Total events: {len(rows)}")
