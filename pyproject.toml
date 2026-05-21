@@ -5,8 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "agentautopsy"
 version = "0.1.0"
+description = "When your agent fails, this tells you exactly why."
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [{ name = "Abhishek Patel" }]
+keywords = ["ai-agents", "debugging", "llm", "observability"]
 dependencies = [
     "openai",
     "anthropic",
@@ -14,6 +17,9 @@ dependencies = [
     "sqlite-vec",
     "httpx",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Abhisekhpatel/AgentAutopsy"
 
 [project.scripts]
 agentautopsy = "agentautopsy.cli:main"
