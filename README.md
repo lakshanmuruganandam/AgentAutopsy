@@ -2,7 +2,7 @@
 
 > When your agent fails, this tells you exactly why.
 
-![demo](assets/demo.png)
+![demo](assets/demo.gif)
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
