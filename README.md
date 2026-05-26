@@ -18,7 +18,7 @@ agentautopsy stats       # fix cache stats
 ## Install
 
 ```bash
-pip install git+https://github.com/Abhisekhpatel/AgentAutopsy.git
+pip install agentautopsy
 ```
 
 ## Usage
