@@ -10,14 +10,29 @@ from agentautopsy.interceptor import (
 )
 from agentautopsy.reporter import print_report
 
+_watch_context: tuple[str, object] | None = None
+
+
+def get_callback_handler():
+    """Return a LangChain callback handler for the active watch() run."""
+    if _watch_context is None:
+        raise RuntimeError("Call agentautopsy.watch() before get_callback_handler()")
+    run_id, db = _watch_context
+    from agentautopsy.langchain_handler import AgentAutopsyCallbackHandler
+
+    return AgentAutopsyCallbackHandler(run_id, db)
+
 
 def watch():
+    global _watch_context
+
     db = get_db()
     create_tables(db)
     from agentautopsy.cache import setup_cache
 
     setup_cache(db)
     run_id = insert_run(db)
+    _watch_context = (run_id, db)
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
