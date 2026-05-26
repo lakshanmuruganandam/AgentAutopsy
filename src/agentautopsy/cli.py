@@ -15,11 +15,13 @@ Commands:
   runs              List all runs (id, start_time, status)
   replay <run_id>   Print the event report for a run
   stats             Show fix cache statistics
+  ui                Open the web UI in your browser
 
 Examples:
   agentautopsy runs
   agentautopsy replay abc-123-def
-  agentautopsy stats"""
+  agentautopsy stats
+  agentautopsy ui"""
     )
 
 
@@ -58,6 +60,13 @@ def main() -> None:
         stats = cache_stats(db)
         print(f"total_fixes: {stats['total_fixes']}")
         print(f"total_hits: {stats['total_hits']}")
+        return
+
+    if cmd == "ui":
+        from agentautopsy.ui import start_ui
+
+        path = start_ui()
+        print(f"Opened {path}")
         return
 
     print(f"Unknown command: {cmd}", file=sys.stderr)
