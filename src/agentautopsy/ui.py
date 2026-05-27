@@ -18,24 +18,68 @@ def _parse_payload(raw: Any) -> dict[str, Any]:
         return {}
 
 
-def _event_detail(ev_type: str, payload: dict[str, Any], cassette_size: int) -> str:
+def _row_int(row: dict[str, Any], key: str) -> int | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    return int(value)
+
+
+def _row_float(row: dict[str, Any], key: str) -> float | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    return float(value)
+
+
+def _metrics_suffix(
+    latency_ms: int | None,
+    token_input: int | None,
+    token_output: int | None,
+    cost_usd: float | None,
+) -> str:
+    parts: list[str] = []
+    if latency_ms is not None:
+        parts.append(f"{latency_ms}ms")
+    if token_input is not None or token_output is not None:
+        parts.append(f"tokens {token_input or 0}/{token_output or 0}")
+    if cost_usd is not None:
+        parts.append(f"${cost_usd:.6f}")
+    return " · ".join(parts)
+
+
+def _event_detail(
+    ev_type: str,
+    payload: dict[str, Any],
+    cassette_size: int,
+    latency_ms: int | None = None,
+    token_input: int | None = None,
+    token_output: int | None = None,
+    cost_usd: float | None = None,
+) -> str:
     if ev_type == "llm_call":
-        return f"model: {payload.get('model')}"
-    if ev_type == "llm_response":
-        return f"cassette: {cassette_size} bytes"
-    if ev_type == "http_request":
-        return f"{payload.get('method')} {payload.get('url')}"
-    if ev_type == "http_response":
-        return f"status: {payload.get('status_code')}"
-    if ev_type == "error":
-        return f"{payload.get('error_type')}: {payload.get('message')}"
-    if ev_type == "tool_call":
-        return f"{payload.get('tool')}: {payload.get('input')}"
-    if ev_type == "tool_result":
-        return f"output: {payload.get('output')}"
-    if payload:
-        return json.dumps(payload, default=str)
-    return ""
+        base = f"model: {payload.get('model')}"
+    elif ev_type == "llm_response":
+        base = f"cassette: {cassette_size} bytes"
+    elif ev_type == "http_request":
+        base = f"{payload.get('method')} {payload.get('url')}"
+    elif ev_type == "http_response":
+        base = f"status: {payload.get('status_code')}"
+    elif ev_type == "error":
+        base = f"{payload.get('error_type')}: {payload.get('message')}"
+    elif ev_type == "tool_call":
+        base = f"{payload.get('tool')}: {payload.get('input')}"
+    elif ev_type == "tool_result":
+        base = f"output: {payload.get('output')}"
+    elif payload:
+        base = json.dumps(payload, default=str)
+    else:
+        base = ""
+
+    metrics = _metrics_suffix(latency_ms, token_input, token_output, cost_usd)
+    if metrics:
+        return f"{base} · {metrics}" if base else metrics
+    return base
 
 
 def _root_cause(events: list[dict[str, Any]]) -> str | None:
@@ -64,13 +108,29 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
     runs_data: dict[str, dict[str, Any]] = {}
     if not db["events"].exists():
         for run in runs:
-            runs_data[run["id"]] = {"items": [], "root_cause": None}
+            runs_data[run["id"]] = {
+                "items": [],
+                "root_cause": None,
+                "summary": {
+                    "total_token_input": 0,
+                    "total_token_output": 0,
+                    "total_tokens": 0,
+                    "total_cost_usd": 0.0,
+                    "total_latency_ms": 0,
+                },
+            }
         return runs, runs_data
 
     for run in runs:
         run_id = run["id"]
         items: list[dict[str, Any]] = []
         raw_events: list[dict[str, Any]] = []
+
+        pending_call: dict[str, Any] | None = None
+        total_token_input = 0
+        total_token_output = 0
+        total_cost = 0.0
+        total_latency = 0
 
         for row in db["events"].rows_where(
             where="run_id = ?",
@@ -80,18 +140,72 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             payload = _parse_payload(row.get("payload"))
             cassette = row.get("cassette")
             cassette_size = len(cassette) if cassette is not None else 0
+            latency_ms = _row_int(row, "latency_ms")
+            token_input = _row_int(row, "token_input")
+            token_output = _row_int(row, "token_output")
+            cost_usd = _row_float(row, "cost_usd")
+
+            if token_input is not None:
+                total_token_input += token_input
+            if token_output is not None:
+                total_token_output += token_output
+            if cost_usd is not None:
+                total_cost += cost_usd
+            if latency_ms is not None:
+                total_latency += latency_ms
+
             raw_events.append({"type": row["type"], "payload": payload})
-            items.append(
-                {
-                    "type": row["type"],
-                    "timestamp": row.get("timestamp", ""),
-                    "detail": _event_detail(row["type"], payload, cassette_size),
-                }
-            )
+            ev_type = row["type"]
+            item = {
+                "type": ev_type,
+                "timestamp": row.get("timestamp", ""),
+                "payload": payload,
+                "detail": _event_detail(
+                    ev_type,
+                    payload,
+                    cassette_size,
+                    latency_ms,
+                    token_input,
+                    token_output,
+                    cost_usd,
+                ),
+                "latency_ms": latency_ms,
+                "token_input": token_input,
+                "token_output": token_output,
+                "cost_usd": cost_usd,
+            }
+            items.append(item)
+
+            if ev_type == "llm_call":
+                pending_call = item
+            elif ev_type == "llm_response" and pending_call is not None:
+                pending_call["latency_ms"] = latency_ms
+                pending_call["token_input"] = token_input
+                pending_call["token_output"] = token_output
+                pending_call["cost_usd"] = cost_usd
+                pending_call["detail"] = _event_detail(
+                    "llm_call",
+                    pending_call["payload"],
+                    0,
+                    latency_ms,
+                    token_input,
+                    token_output,
+                    cost_usd,
+                )
+                pending_call = None
+            elif ev_type != "llm_response":
+                pending_call = None
 
         runs_data[run_id] = {
             "items": items,
             "root_cause": _root_cause(raw_events),
+            "summary": {
+                "total_token_input": total_token_input,
+                "total_token_output": total_token_output,
+                "total_tokens": total_token_input + total_token_output,
+                "total_cost_usd": round(total_cost, 6),
+                "total_latency_ms": total_latency,
+            },
         }
 
     return runs, runs_data
@@ -221,6 +335,23 @@ def _build_html(
       border-bottom: 1px solid var(--border);
     }}
     .run-header code {{ font-size: 0.8rem; color: var(--cyan); }}
+    .run-summary {{
+      margin-bottom: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #121a24;
+    }}
+    .run-summary h3 {{
+      margin: 0 0 0.75rem;
+      font-size: 0.95rem;
+      color: var(--cyan);
+    }}
+    .run-summary p {{
+      margin: 0.35rem 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }}
   </style>
 </head>
 <body>
@@ -257,7 +388,12 @@ def _build_html(
       if (run) {{
         html += '<p>Status: <strong>' + escapeHtml(run.status || "") + '</strong> · Started: ' + escapeHtml(run.start_time || "") + '</p>';
       }}
-      html += '</div><ul class="timeline">';
+      const summary = data.summary || {{}};
+      html += '</div><div class="run-summary"><h3>Run Summary</h3>';
+      html += '<p>Total tokens: ' + escapeHtml(summary.total_tokens || 0) + ' (in ' + escapeHtml(summary.total_token_input || 0) + ' / out ' + escapeHtml(summary.total_token_output || 0) + ')</p>';
+      html += '<p>Total cost: $' + escapeHtml(Number(summary.total_cost_usd || 0).toFixed(6)) + '</p>';
+      html += '<p>Total latency: ' + escapeHtml(summary.total_latency_ms || 0) + 'ms</p></div>';
+      html += '<ul class="timeline">';
       events.forEach((ev, idx) => {{
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
         html += '<li class="event ' + cls + '"><div class="type">[' + escapeHtml(ev.type) + ']</div>';

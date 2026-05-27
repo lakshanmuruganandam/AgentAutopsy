@@ -116,6 +116,23 @@
       border-bottom: 1px solid var(--border);
     }
     .run-header code { font-size: 0.8rem; color: var(--cyan); }
+    .run-summary {
+      margin-bottom: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #121a24;
+    }
+    .run-summary h3 {
+      margin: 0 0 0.75rem;
+      font-size: 0.95rem;
+      color: var(--cyan);
+    }
+    .run-summary p {
+      margin: 0.35rem 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -133,8 +150,8 @@
     </main>
   </div>
   <script>
-    const runs = [{"id": "4c5963ab-de2e-4429-a823-b13cc5da8d76", "start_time": "2026-05-26T20:09:56.312796+00:00", "status": "running"}, {"id": "ed72a40b-fb93-4b0c-8c1f-2d6366d733a9", "start_time": "2026-05-21T21:10:26.156134+00:00", "status": "running"}];
-    const runsData = {"4c5963ab-de2e-4429-a823-b13cc5da8d76": {"items": [{"type": "llm_call", "timestamp": "2026-05-26T20:09:59.269226+00:00", "detail": "model: gpt-4"}, {"type": "error", "timestamp": "2026-05-26T20:09:59.274430+00:00", "detail": "TimeoutError: request timed out after 30s"}], "root_cause": "TimeoutError \u2014 request timed out after 30s"}, "ed72a40b-fb93-4b0c-8c1f-2d6366d733a9": {"items": [{"type": "llm_call", "timestamp": "2026-05-21T21:10:28.181205+00:00", "detail": "model: gpt-4"}, {"type": "error", "timestamp": "2026-05-21T21:10:28.186999+00:00", "detail": "TimeoutError: request timed out after 30s"}, {"type": "llm_call", "timestamp": "2026-05-21T21:10:28.480164+00:00", "detail": "model: claude-haiku-4-5-20251001"}, {"type": "http_request", "timestamp": "2026-05-21T21:10:28.592190+00:00", "detail": "POST https://api.anthropic.com/v1/messages"}, {"type": "http_response", "timestamp": "2026-05-21T21:10:30.936852+00:00", "detail": "status: 200"}, {"type": "llm_response", "timestamp": "2026-05-21T21:10:30.983627+00:00", "detail": "cassette: 1263 bytes"}], "root_cause": "TimeoutError \u2014 request timed out after 30s"}};
+    const runs = [{"id": "8350be7e-cae8-420b-9369-95fa792de4c3", "start_time": "2026-05-27T10:35:01.084324+00:00", "status": "running"}];
+    const runsData = {"8350be7e-cae8-420b-9369-95fa792de4c3": {"items": [{"type": "llm_call", "timestamp": "2026-05-27T10:35:03.215440+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"type": "error", "timestamp": "2026-05-27T10:35:03.220364+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"type": "llm_call", "timestamp": "2026-05-27T10:35:03.506262+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"type": "http_request", "timestamp": "2026-05-27T10:35:03.650164+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"type": "http_response", "timestamp": "2026-05-27T10:35:06.623480+00:00", "payload": {"status_code": 200}, "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"type": "llm_response", "timestamp": "2026-05-27T10:35:06.672147+00:00", "payload": {}, "detail": "cassette: 1446 bytes \u00b7 3161ms \u00b7 tokens 160/239 \u00b7 $0.000339", "latency_ms": 3161, "token_input": 160, "token_output": 239, "cost_usd": 0.00033875}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 239, "total_tokens": 399, "total_cost_usd": 0.000339, "total_latency_ms": 3161}}};
     const runList = document.getElementById("run-list");
     const detail = document.getElementById("detail");
 
@@ -152,7 +169,12 @@
       if (run) {
         html += '<p>Status: <strong>' + escapeHtml(run.status || "") + '</strong> · Started: ' + escapeHtml(run.start_time || "") + '</p>';
       }
-      html += '</div><ul class="timeline">';
+      const summary = data.summary || {};
+      html += '</div><div class="run-summary"><h3>Run Summary</h3>';
+      html += '<p>Total tokens: ' + escapeHtml(summary.total_tokens || 0) + ' (in ' + escapeHtml(summary.total_token_input || 0) + ' / out ' + escapeHtml(summary.total_token_output || 0) + ')</p>';
+      html += '<p>Total cost: $' + escapeHtml(Number(summary.total_cost_usd || 0).toFixed(6)) + '</p>';
+      html += '<p>Total latency: ' + escapeHtml(summary.total_latency_ms || 0) + 'ms</p></div>';
+      html += '<ul class="timeline">';
       events.forEach((ev, idx) => {
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
         html += '<li class="event ' + cls + '"><div class="type">[' + escapeHtml(ev.type) + ']</div>';

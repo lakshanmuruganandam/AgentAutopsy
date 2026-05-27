@@ -60,6 +60,29 @@ def main() -> None:
         stats = cache_stats(db)
         print(f"total_fixes: {stats['total_fixes']}")
         print(f"total_hits: {stats['total_hits']}")
+
+        if db["events"].exists():
+            row = db.execute(
+                """
+                SELECT
+                    COALESCE(SUM(token_input), 0),
+                    COALESCE(SUM(token_output), 0),
+                    COALESCE(SUM(cost_usd), 0.0)
+                FROM events
+                """
+            ).fetchone()
+            token_input = int(row[0]) if row else 0
+            token_output = int(row[1]) if row else 0
+            total_cost = float(row[2]) if row else 0.0
+            print(f"total_tokens_input: {token_input}")
+            print(f"total_tokens_output: {token_output}")
+            print(f"total_tokens: {token_input + token_output}")
+            print(f"total_cost_usd: {total_cost:.6f}")
+        else:
+            print("total_tokens_input: 0")
+            print("total_tokens_output: 0")
+            print("total_tokens: 0")
+            print("total_cost_usd: 0.000000")
         return
 
     if cmd == "ui":
