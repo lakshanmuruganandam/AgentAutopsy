@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -233,10 +234,13 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
 
 
 def _build_html(
-    runs: list[dict[str, Any]], runs_data: dict[str, dict[str, Any]]
+    runs: list[dict[str, Any]],
+    runs_data: dict[str, dict[str, Any]],
+    anthropic_api_key: str = "",
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
+    api_key_json = json.dumps(anthropic_api_key)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -661,6 +665,112 @@ def _build_html(
       background: rgba(248, 113, 113, 0.1) !important;
       box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 24px rgba(248, 113, 113, 0.2) !important;
     }}
+    .chat-section {{
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }}
+    .chat-head {{
+      margin: 0 0 1rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+    }}
+    .chat-messages {{
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }}
+    .chat-msg {{
+      max-width: 88%;
+      padding: 0.85rem 1rem;
+      border-radius: 14px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }}
+    .chat-msg.user {{
+      align-self: flex-end;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      color: #e0f2fe;
+    }}
+    .chat-msg.assistant {{
+      align-self: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }}
+    .chat-msg.loading {{
+      color: var(--muted);
+      font-style: italic;
+    }}
+    .chat-compose {{
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+    }}
+    .chat-input {{
+      flex: 1;
+      padding: 0.72rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }}
+    .chat-input::placeholder {{ color: var(--dim); }}
+    .chat-input:focus {{
+      border-color: rgba(34, 211, 238, 0.35);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+    }}
+    .chat-ask-btn {{
+      padding: 0.72rem 1.15rem;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.86rem;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 100%);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+      transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+      white-space: nowrap;
+    }}
+    .chat-ask-btn:hover:not(:disabled) {{
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }}
+    .chat-ask-btn:disabled {{
+      opacity: 0.55;
+      cursor: not-allowed;
+    }}
+    .chat-error {{
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      background: rgba(248, 113, 113, 0.08);
+      color: #fecaca;
+      font-size: 0.84rem;
+    }}
+    .chat-hint {{
+      margin-top: 0.65rem;
+      font-size: 0.78rem;
+      color: var(--dim);
+    }}
     @media (max-width: 900px) {{
       .layout {{ grid-template-columns: 1fr; }}
       .sidebar {{ border-right: none; border-bottom: 1px solid var(--border); max-height: 220px; }}
@@ -687,9 +797,14 @@ def _build_html(
   <script>
     const runs = {runs_json};
     const runsData = {data_json};
+    const anthropicApiKey = {api_key_json};
+    const CHAT_SYSTEM_PROMPT =
+      "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
     const detail = document.getElementById("detail");
     let replayTimer = null;
+    const chatHistory = {{}};
+    let chatLoadingRunId = null;
 
     function escapeHtml(text) {{
       const div = document.createElement("div");
@@ -773,6 +888,146 @@ def _build_html(
       showNext();
     }}
 
+    function getRunEventsJson(runId) {{
+      const data = runsData[runId] || {{ items: [] }};
+      return JSON.stringify(data.items || [], null, 2);
+    }}
+
+    function buildApiMessages(runId) {{
+      const eventsJson = getRunEventsJson(runId);
+      const contextBlock = "Run events (full JSON):\\n" + eventsJson;
+      const history = chatHistory[runId] || [];
+      return history.map((msg) => {{
+        if (msg.role === "user") {{
+          return {{
+            role: "user",
+            content: contextBlock + "\\n\\nUser question: " + msg.content,
+          }};
+        }}
+        return {{ role: "assistant", content: msg.content }};
+      }});
+    }}
+
+    function showChatError(message) {{
+      const errorEl = document.getElementById("chat-error");
+      if (!errorEl) {{
+        return;
+      }}
+      errorEl.textContent = message;
+      errorEl.style.display = message ? "block" : "none";
+    }}
+
+    function renderChatMessages(runId) {{
+      const container = document.getElementById("chat-messages");
+      if (!container) {{
+        return;
+      }}
+      const history = chatHistory[runId] || [];
+      let html = "";
+      history.forEach((msg) => {{
+        html += '<div class="chat-msg ' + escapeHtml(msg.role) + '">' + escapeHtml(msg.content) + "</div>";
+      }});
+      if (chatLoadingRunId === runId) {{
+        html += '<div class="chat-msg assistant loading">Thinking...</div>';
+      }}
+      container.innerHTML = html;
+      container.scrollTop = container.scrollHeight;
+    }}
+
+    function renderChatUI(runId) {{
+      const askBtn = document.getElementById("chat-ask-btn");
+      const input = document.getElementById("chat-input");
+      const hint = document.getElementById("chat-hint");
+      if (!askBtn || !input) {{
+        return;
+      }}
+      showChatError("");
+      if (!anthropicApiKey) {{
+        askBtn.disabled = true;
+        if (hint) {{
+          hint.textContent = "Set ANTHROPIC_API_KEY and run agentautopsy ui to enable chat.";
+        }}
+      }} else {{
+        askBtn.disabled = chatLoadingRunId === runId;
+        if (hint) {{
+          hint.textContent = "Chat history is kept for this browser session only.";
+        }}
+      }}
+      askBtn.onclick = () => askAI(runId);
+      input.onkeydown = (event) => {{
+        if (event.key === "Enter" && !event.shiftKey) {{
+          event.preventDefault();
+          askAI(runId);
+        }}
+      }};
+      renderChatMessages(runId);
+    }}
+
+    async function askAI(runId) {{
+      const input = document.getElementById("chat-input");
+      const askBtn = document.getElementById("chat-ask-btn");
+      if (!input || !askBtn || chatLoadingRunId) {{
+        return;
+      }}
+      const question = (input.value || "").trim();
+      if (!question) {{
+        return;
+      }}
+      if (!anthropicApiKey) {{
+        showChatError("Set ANTHROPIC_API_KEY and regenerate the report.");
+        return;
+      }}
+      if (!chatHistory[runId]) {{
+        chatHistory[runId] = [];
+      }}
+      chatHistory[runId].push({{ role: "user", content: question }});
+      input.value = "";
+      showChatError("");
+      chatLoadingRunId = runId;
+      askBtn.disabled = true;
+      renderChatMessages(runId);
+      try {{
+        const response = await fetch("https://api.anthropic.com/v1/messages", {{
+          method: "POST",
+          headers: {{
+            "Content-Type": "application/json",
+            "x-api-key": anthropicApiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          }},
+          body: JSON.stringify({{
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 500,
+            system: CHAT_SYSTEM_PROMPT,
+            messages: buildApiMessages(runId),
+          }}),
+        }});
+        const payload = await response.json();
+        if (!response.ok) {{
+          const errMsg = payload.error && payload.error.message
+            ? payload.error.message
+            : "Request failed (" + response.status + ")";
+          throw new Error(errMsg);
+        }}
+        const answer = payload.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\\n")
+          .trim();
+        if (!answer) {{
+          throw new Error("Empty response from API");
+        }}
+        chatHistory[runId].push({{ role: "assistant", content: answer }});
+      }} catch (error) {{
+        chatHistory[runId].pop();
+        showChatError(error.message || "Failed to reach Anthropic API");
+      }} finally {{
+        chatLoadingRunId = null;
+        askBtn.disabled = !anthropicApiKey;
+        renderChatMessages(runId);
+      }}
+    }}
+
     function renderRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -823,7 +1078,18 @@ def _build_html(
       if (data.root_cause) {{
         html += '<div class="root-cause">Root Cause: ' + escapeHtml(data.root_cause) + '</div>';
       }}
+      html += '<div class="chat-section">';
+      html += '<h3 class="chat-head">AI Debug Assistant</h3>';
+      html += '<div class="chat-messages" id="chat-messages"></div>';
+      html += '<div class="chat-compose">';
+      html += '<input class="chat-input" id="chat-input" type="text" placeholder="Ask about this run..." />';
+      html += '<button class="chat-ask-btn" id="chat-ask-btn" type="button">Ask AI</button>';
+      html += '</div>';
+      html += '<div class="chat-error" id="chat-error" style="display:none"></div>';
+      html += '<div class="chat-hint" id="chat-hint"></div>';
+      html += '</div>';
       detail.innerHTML = html;
+      renderChatUI(runId);
     }}
 
     if (runs.length === 0) {{
@@ -857,7 +1123,7 @@ def start_ui() -> Path:
     """Build a self-contained HTML report and open it in the browser."""
     db = get_db()
     runs, runs_data = _load_data(db)
-    html = _build_html(runs, runs_data)
+    html = _build_html(runs, runs_data, os.environ.get("ANTHROPIC_API_KEY", ""))
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     webbrowser.open(output_path.resolve().as_uri())
