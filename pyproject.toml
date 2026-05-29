@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentautopsy"
-version = "0.4.0"
+version = "0.5.0"
 description = "When your agent fails, this tells you exactly why."
 readme = "README.md"
 requires-python = ">=3.11"
