@@ -1,3 +1,4 @@
 agentautopsy.db 
 *.db
+agentautopsy_report.html
 dist/  
