@@ -32,6 +32,20 @@ def _row_float(row: dict[str, Any], key: str) -> float | None:
     return float(value)
 
 
+def _format_cassette(cassette: bytes | None) -> str | None:
+    if not cassette:
+        return None
+    try:
+        text = cassette.decode("utf-8")
+    except UnicodeDecodeError:
+        return repr(cassette)
+    try:
+        parsed = json.loads(text)
+        return json.dumps(parsed, indent=2, default=str)
+    except (json.JSONDecodeError, TypeError):
+        return text
+
+
 def _metrics_suffix(
     latency_ms: int | None,
     token_input: int | None,
@@ -119,6 +133,7 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
                     "total_latency_ms": 0,
                 },
             }
+            run["has_error"] = False
         return runs, runs_data
 
     for run in runs:
@@ -157,9 +172,11 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             raw_events.append({"type": row["type"], "payload": payload})
             ev_type = row["type"]
             item = {
+                "id": row["id"],
                 "type": ev_type,
                 "timestamp": row.get("timestamp", ""),
                 "payload": payload,
+                "cassette_text": _format_cassette(cassette),
                 "detail": _event_detail(
                     ev_type,
                     payload,
@@ -208,6 +225,10 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             },
         }
 
+    for run in runs:
+        run_data = runs_data.get(run["id"], {})
+        run["has_error"] = run_data.get("root_cause") is not None
+
     return runs, runs_data
 
 
@@ -223,92 +244,343 @@ def _build_html(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AgentAutopsy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {{
-      --bg: #0f1419;
-      --panel: #1a2332;
-      --border: #2d3a4d;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --cyan: #56d4dd;
-      --yellow: #e3b341;
-      --green: #3fb950;
-      --red: #f85149;
-      --blue: #79c0ff;
+      --bg: #09090b;
+      --bg-elevated: #0f0f12;
+      --surface: #141419;
+      --surface-hover: #1a1a22;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.14);
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+      --cyan: #22d3ee;
+      --yellow: #facc15;
+      --green: #4ade80;
+      --red: #f87171;
+      --purple: #a78bfa;
+      --gradient: linear-gradient(135deg, #22d3ee 0%, #3b82f6 100%);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
+      --glow: 0 0 24px rgba(34, 211, 238, 0.35), 0 0 48px rgba(99, 102, 241, 0.18);
+    }}
+    @keyframes replay-pulse {{
+      0%, 100% {{
+        box-shadow: 0 0 18px rgba(34, 211, 238, 0.45), 0 0 36px rgba(59, 130, 246, 0.25);
+      }}
+      50% {{
+        box-shadow: 0 0 32px rgba(34, 211, 238, 0.65), 0 0 64px rgba(59, 130, 246, 0.4);
+      }}
     }}
     * {{ box-sizing: border-box; }}
-    body {{
+    html, body {{
       margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      min-height: 100%;
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }}
+    body {{
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 211, 238, 0.08), transparent),
+        var(--bg);
     }}
     header {{
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.75rem;
+      border-bottom: 1px solid rgba(34, 211, 238, 0.12);
+      background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.14) 0%, rgba(34, 211, 238, 0.04) 45%, rgba(15, 15, 18, 0.92) 100%),
+        rgba(15, 15, 18, 0.85);
+      box-shadow: 0 1px 0 rgba(34, 211, 238, 0.1), 0 8px 32px rgba(34, 211, 238, 0.06);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }}
-    header h1 {{ margin: 0; font-size: 1.25rem; }}
-    header p {{ margin: 0.25rem 0 0; color: var(--muted); font-size: 0.9rem; }}
+    .brand {{
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }}
+    .logo {{
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }}
+    .tagline {{
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 400;
+    }}
     .layout {{
       display: grid;
-      grid-template-columns: 320px 1fr;
-      min-height: calc(100vh - 72px);
+      grid-template-columns: 300px 1fr;
+      min-height: calc(100vh - 68px);
     }}
-    .runs {{
+    .sidebar {{
       border-right: 1px solid var(--border);
-      background: var(--panel);
+      background: rgba(15, 15, 18, 0.55);
       overflow-y: auto;
     }}
-    .runs h2 {{
-      margin: 0;
-      padding: 1rem 1rem 0.5rem;
-      font-size: 0.85rem;
+    .sidebar-head {{
+      padding: 1.25rem 1.25rem 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
+      letter-spacing: 0.08em;
+      color: var(--dim);
+    }}
+    #run-list {{
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding: 0 0.65rem 0.85rem;
     }}
     .run-item {{
-      display: block;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
       width: 100%;
       text-align: left;
       border: none;
-      border-bottom: 1px solid var(--border);
       background: transparent;
       color: var(--text);
       padding: 0.85rem 1rem;
+      border-radius: 999px;
       cursor: pointer;
+      transition: background 0.2s ease, box-shadow 0.2s ease;
     }}
-    .run-item:hover {{ background: #243044; }}
-    .run-item.active {{ background: #2d3f56; border-left: 3px solid var(--cyan); }}
-    .run-id {{ font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--muted); }}
-    .run-meta {{ margin-top: 0.35rem; font-size: 0.85rem; }}
-    .detail {{ padding: 1.5rem; overflow-y: auto; }}
-    .empty {{ color: var(--muted); padding: 2rem; }}
-    .timeline {{ list-style: none; margin: 0; padding: 0; }}
+    .run-item:hover {{ background: var(--surface-hover); }}
+    .run-item.active {{
+      background: rgba(34, 211, 238, 0.1);
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.28),
+        0 0 18px rgba(34, 211, 238, 0.22),
+        inset 0 1px 0 rgba(34, 211, 238, 0.08);
+    }}
+    .status-dot {{
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-top: 0.35rem;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px currentColor;
+    }}
+    .dot-success {{ background: var(--green); color: var(--green); }}
+    .dot-failed {{ background: var(--red); color: var(--red); }}
+    .dot-running {{ background: var(--yellow); color: var(--yellow); }}
+    .run-copy {{ min-width: 0; flex: 1; }}
+    .run-id {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .run-meta {{
+      margin-top: 0.3rem;
+      font-size: 0.8rem;
+      color: var(--dim);
+    }}
+    .detail {{
+      padding: 1.75rem 2rem 2.5rem;
+      overflow-y: auto;
+      background:
+        radial-gradient(ellipse 75% 55% at 50% 35%, rgba(30, 58, 138, 0.16) 0%, rgba(15, 23, 42, 0.06) 45%, transparent 72%),
+        transparent;
+    }}
+    .empty {{
+      color: var(--muted);
+      padding: 3rem 1rem;
+      text-align: center;
+      font-size: 0.95rem;
+    }}
+    .run-header {{
+      margin-bottom: 1.5rem;
+    }}
+    .run-header h2 {{
+      margin: 0 0 0.35rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }}
+    .run-header code {{
+      font-size: 0.78rem;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+    }}
+    .run-sub {{
+      margin: 0.65rem 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }}
+    .stat-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }}
+    .stat-card {{
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% -10%, rgba(255, 255, 255, 0.06) 0%, transparent 65%),
+        var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow);
+      transition: border-color 0.18s ease, transform 0.18s ease;
+    }}
+    .stat-card::before {{
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      border-radius: 14px 14px 0 0;
+    }}
+    .stat-grid .stat-card:nth-child(1)::before {{
+      background: var(--cyan);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.7), 0 0 22px rgba(34, 211, 238, 0.35);
+    }}
+    .stat-grid .stat-card:nth-child(2)::before {{
+      background: var(--green);
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.7), 0 0 22px rgba(74, 222, 128, 0.35);
+    }}
+    .stat-grid .stat-card:nth-child(3)::before {{
+      background: var(--purple);
+      box-shadow: 0 0 10px rgba(167, 139, 250, 0.7), 0 0 22px rgba(167, 139, 250, 0.35);
+    }}
+    .stat-card:hover {{
+      border-color: var(--border-hover);
+      transform: translateY(-1px);
+    }}
+    .stat-label {{
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      margin-bottom: 0.55rem;
+    }}
+    .stat-value {{
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }}
+    .stat-sub {{
+      margin-top: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }}
+    .replay-btn {{
+      margin-bottom: 1.25rem;
+      padding: 0.72rem 1.25rem;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 50%, #6366f1 100%);
+      box-shadow: var(--glow);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }}
+    .replay-btn:hover {{
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+      animation: replay-pulse 1.6s ease-in-out infinite;
+    }}
+    .timeline {{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }}
     .event {{
-      padding: 0.75rem 1rem;
-      margin-bottom: 0.5rem;
-      border-radius: 8px;
-      background: #121a24;
-      border-left: 4px solid var(--muted);
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--dim);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition:
+        background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }}
+    .event:hover {{
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }}
+    .event.llm_call:hover {{
+      box-shadow: var(--shadow), 0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 20px rgba(34, 211, 238, 0.18);
+      border-color: rgba(34, 211, 238, 0.25);
+    }}
+    .event.http_request:hover {{
+      box-shadow: var(--shadow), 0 0 0 1px rgba(250, 204, 21, 0.2), 0 0 20px rgba(250, 204, 21, 0.15);
+      border-color: rgba(250, 204, 21, 0.25);
+    }}
+    .event.http_response:hover {{
+      box-shadow: var(--shadow), 0 0 0 1px rgba(74, 222, 128, 0.2), 0 0 20px rgba(74, 222, 128, 0.15);
+      border-color: rgba(74, 222, 128, 0.25);
+    }}
+    .event.error:hover {{
+      box-shadow: var(--shadow), 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 20px rgba(248, 113, 113, 0.18);
+      border-color: rgba(248, 113, 113, 0.3);
+    }}
+    .event.llm_response:hover {{
+      box-shadow: var(--shadow), 0 0 0 1px rgba(167, 139, 250, 0.2), 0 0 20px rgba(167, 139, 250, 0.18);
+      border-color: rgba(167, 139, 250, 0.25);
+    }}
+    .event.expanded {{
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
     }}
     .event .type {{
       font-weight: 600;
-      font-family: ui-monospace, monospace;
-      font-size: 0.85rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.01em;
     }}
     .event .summary {{
-      margin-top: 0.35rem;
+      margin-top: 0.45rem;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
+      line-height: 1.45;
       word-break: break-word;
     }}
     .event .ts {{
-      margin-top: 0.25rem;
-      font-size: 0.75rem;
-      color: #6e7681;
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      color: var(--dim);
     }}
     .event.llm_call {{ border-left-color: var(--cyan); }}
     .event.llm_call .type {{ color: var(--cyan); }}
@@ -318,50 +590,94 @@ def _build_html(
     .event.http_response .type {{ color: var(--green); }}
     .event.error {{ border-left-color: var(--red); }}
     .event.error .type {{ color: var(--red); }}
-    .event.llm_response {{ border-left-color: var(--blue); }}
-    .event.llm_response .type {{ color: var(--blue); }}
+    .event.llm_response {{ border-left-color: var(--purple); }}
+    .event.llm_response .type {{ color: var(--purple); }}
     .root-cause {{
       margin-top: 1.5rem;
       padding: 1rem 1.25rem;
-      border: 1px solid var(--red);
-      border-radius: 8px;
-      background: #2a1518;
-      color: var(--red);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: 12px;
+      background: rgba(248, 113, 113, 0.08);
+      color: #fecaca;
       font-weight: 600;
+      font-size: 0.92rem;
     }}
-    .run-header {{
-      margin-bottom: 1rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border);
+    .event-body {{
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease, opacity 0.25s ease, margin-top 0.25s ease;
+      margin-top: 0;
     }}
-    .run-header code {{ font-size: 0.8rem; color: var(--cyan); }}
-    .run-summary {{
-      margin-bottom: 1rem;
-      padding: 1rem 1.25rem;
+    .event-body.open {{
+      max-height: 4000px;
+      opacity: 1;
+      margin-top: 0.85rem;
+    }}
+    .inspect-label {{
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      margin: 0.85rem 0 0.4rem;
+    }}
+    .inspect-label:first-child {{ margin-top: 0; }}
+    .event-body pre {{
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: #0c0c0f;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #121a24;
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: auto;
     }}
-    .run-summary h3 {{
-      margin: 0 0 0.75rem;
-      font-size: 0.95rem;
-      color: var(--cyan);
-    }}
-    .run-summary p {{
-      margin: 0.35rem 0;
-      font-size: 0.9rem;
+    .inspect-metrics {{
+      font-size: 0.82rem;
       color: var(--muted);
+      margin-top: 0.65rem;
+      line-height: 1.6;
+    }}
+    .collapse-hint {{
+      margin-top: 0.85rem;
+      font-size: 0.78rem;
+      color: var(--cyan);
+      font-weight: 500;
+    }}
+    .event.replay-hidden {{ display: none; }}
+    .event.replay-current {{
+      border-left-width: 4px !important;
+      border-left-color: #fff !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 24px rgba(34, 211, 238, 0.35) !important;
+      transform: none !important;
+    }}
+    .event.replay-error-highlight {{
+      border-left-color: var(--red) !important;
+      background: rgba(248, 113, 113, 0.1) !important;
+      box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 24px rgba(248, 113, 113, 0.2) !important;
+    }}
+    @media (max-width: 900px) {{
+      .layout {{ grid-template-columns: 1fr; }}
+      .sidebar {{ border-right: none; border-bottom: 1px solid var(--border); max-height: 220px; }}
+      .stat-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
 <body>
   <header>
-    <h1>AgentAutopsy</h1>
-    <p>When your agent fails, this tells you exactly why.</p>
+    <div class="brand">
+      <h1 class="logo">AgentAutopsy</h1>
+      <p class="tagline">When your agent fails, this tells you exactly why.</p>
+    </div>
   </header>
   <div class="layout">
-    <aside class="runs">
-      <h2>Runs</h2>
+    <aside class="sidebar">
+      <div class="sidebar-head">Runs</div>
       <div id="run-list"></div>
     </aside>
     <main class="detail" id="detail">
@@ -373,6 +689,7 @@ def _build_html(
     const runsData = {data_json};
     const runList = document.getElementById("run-list");
     const detail = document.getElementById("detail");
+    let replayTimer = null;
 
     function escapeHtml(text) {{
       const div = document.createElement("div");
@@ -380,27 +697,127 @@ def _build_html(
       return div.innerHTML;
     }}
 
+    function formatPayload(payload) {{
+      if (!payload || Object.keys(payload).length === 0) {{
+        return "{{}}";
+      }}
+      return JSON.stringify(payload, null, 2);
+    }}
+
+    function formatMetric(value, suffix) {{
+      if (value === null || value === undefined) {{
+        return "—";
+      }}
+      return String(value) + (suffix || "");
+    }}
+
+    function statusDotClass(run) {{
+      if ((run.status || "").toLowerCase() === "running") {{
+        return "dot-running";
+      }}
+      if (run.has_error) {{
+        return "dot-failed";
+      }}
+      return "dot-success";
+    }}
+
+    function toggleExpand(id) {{
+      const body = document.getElementById("expand-" + id);
+      const event = document.getElementById("event-" + id);
+      if (!body || !event) {{
+        return;
+      }}
+      body.classList.toggle("open");
+      event.classList.toggle("expanded");
+    }}
+
+    function replayRun(runId) {{
+      if (replayTimer) {{
+        clearTimeout(replayTimer);
+        replayTimer = null;
+      }}
+      const timeline = document.getElementById("timeline-" + runId);
+      if (!timeline) {{
+        return;
+      }}
+      const eventNodes = Array.from(timeline.querySelectorAll(".event"));
+      eventNodes.forEach((node) => {{
+        node.classList.remove("replay-current", "replay-error-highlight", "replay-hidden");
+        node.classList.add("replay-hidden");
+        node.classList.remove("expanded");
+        const body = node.querySelector(".event-body");
+        if (body) {{
+          body.classList.remove("open");
+        }}
+      }});
+
+      let index = 0;
+      function showNext() {{
+        if (index >= eventNodes.length) {{
+          eventNodes.forEach((node) => {{
+            if (node.classList.contains("error")) {{
+              node.classList.add("replay-error-highlight");
+            }}
+          }});
+          replayTimer = null;
+          return;
+        }}
+        eventNodes.forEach((node) => node.classList.remove("replay-current"));
+        const current = eventNodes[index];
+        current.classList.remove("replay-hidden");
+        current.classList.add("replay-current");
+        current.scrollIntoView({{ behavior: "smooth", block: "center" }});
+        index += 1;
+        replayTimer = setTimeout(showNext, 600);
+      }}
+      showNext();
+    }}
+
     function renderRun(runId) {{
-      const data = runsData[runId] || {{ items: [], root_cause: null }};
+      if (replayTimer) {{
+        clearTimeout(replayTimer);
+        replayTimer = null;
+      }}
+      const data = runsData[runId] || {{ items: [], root_cause: null, summary: {{}} }};
       const events = data.items || [];
       const run = runs.find(r => r.id === runId);
+      const summary = data.summary || {{}};
       let html = '<div class="run-header"><h2>Run timeline</h2><p><code>' + escapeHtml(runId) + '</code></p>';
       if (run) {{
-        html += '<p>Status: <strong>' + escapeHtml(run.status || "") + '</strong> · Started: ' + escapeHtml(run.start_time || "") + '</p>';
+        html += '<p class="run-sub">Status <strong>' + escapeHtml(run.status || "") + '</strong> · ' + escapeHtml(run.start_time || "") + '</p>';
       }}
-      const summary = data.summary || {{}};
-      html += '</div><div class="run-summary"><h3>Run Summary</h3>';
-      html += '<p>Total tokens: ' + escapeHtml(summary.total_tokens || 0) + ' (in ' + escapeHtml(summary.total_token_input || 0) + ' / out ' + escapeHtml(summary.total_token_output || 0) + ')</p>';
-      html += '<p>Total cost: $' + escapeHtml(Number(summary.total_cost_usd || 0).toFixed(6)) + '</p>';
-      html += '<p>Total latency: ' + escapeHtml(summary.total_latency_ms || 0) + 'ms</p></div>';
-      html += '<ul class="timeline">';
+      html += '</div>';
+      html += '<div class="stat-grid">';
+      html += '<div class="stat-card"><div class="stat-label">Tokens</div><div class="stat-value">' + escapeHtml(summary.total_tokens || 0) + '</div>';
+      html += '<div class="stat-sub">in ' + escapeHtml(summary.total_token_input || 0) + ' / out ' + escapeHtml(summary.total_token_output || 0) + '</div></div>';
+      html += '<div class="stat-card"><div class="stat-label">Cost</div><div class="stat-value">$' + escapeHtml(Number(summary.total_cost_usd || 0).toFixed(4)) + '</div>';
+      html += '<div class="stat-sub">estimated USD</div></div>';
+      html += '<div class="stat-card"><div class="stat-label">Latency</div><div class="stat-value">' + escapeHtml(summary.total_latency_ms || 0) + '<span style="font-size:0.95rem;font-weight:600;color:var(--muted)">ms</span></div>';
+      html += '<div class="stat-sub">cumulative LLM time</div></div></div>';
+      html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
+      html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {{
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
-        html += '<li class="event ' + cls + '"><div class="type">[' + escapeHtml(ev.type) + ']</div>';
+        const eventId = ev.id || (runId + "-" + idx);
+        html += '<li class="event ' + cls + '" id="event-' + escapeHtml(eventId) + '" onclick="toggleExpand(\\'' + eventId.replace(/'/g, "\\\\'") + '\\')">';
+        html += '<div class="type">[' + escapeHtml(ev.type) + ']</div>';
         if (ev.detail) {{
           html += '<div class="summary">' + escapeHtml(ev.detail) + '</div>';
         }}
-        html += '<div class="ts">#' + (idx + 1) + ' · ' + escapeHtml(ev.timestamp || "") + '</div></li>';
+        html += '<div class="ts">#' + (idx + 1) + ' · ' + escapeHtml(ev.timestamp || "") + '</div>';
+        html += '<div class="event-body" id="expand-' + escapeHtml(eventId) + '">';
+        html += '<div class="inspect-label">Payload</div>';
+        html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';
+        html += '<div class="inspect-label">Cassette</div>';
+        html += '<pre>' + escapeHtml(ev.cassette_text || "(none)") + '</pre>';
+        html += '<div class="inspect-metrics">';
+        html += 'latency_ms: ' + escapeHtml(formatMetric(ev.latency_ms, "ms")) + '<br>';
+        html += 'token_input: ' + escapeHtml(formatMetric(ev.token_input)) + '<br>';
+        html += 'token_output: ' + escapeHtml(formatMetric(ev.token_output)) + '<br>';
+        html += 'cost_usd: ' + escapeHtml(ev.cost_usd === null || ev.cost_usd === undefined ? "—" : "$" + Number(ev.cost_usd).toFixed(6));
+        html += '</div>';
+        html += '<div class="collapse-hint">Click to collapse</div>';
+        html += '</div></li>';
       }});
       html += '</ul>';
       if (data.root_cause) {{
@@ -410,15 +827,17 @@ def _build_html(
     }}
 
     if (runs.length === 0) {{
-      runList.innerHTML = '<div class="empty" style="padding:1rem">No runs found.</div>';
+      runList.innerHTML = '<div class="empty">No runs found.</div>';
       detail.innerHTML = '<div class="empty">No data in agentautopsy.db yet.</div>';
     }} else {{
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
         btn.className = "run-item" + (index === 0 ? " active" : "");
         btn.type = "button";
-        btn.innerHTML = '<div class="run-id">' + escapeHtml(run.id) + '</div><div class="run-meta">' +
-          escapeHtml(run.status || "") + ' · ' + escapeHtml(run.start_time || "") + '</div>';
+        btn.innerHTML =
+          '<span class="status-dot ' + statusDotClass(run) + '"></span>' +
+          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.id) + '</div>' +
+          '<div class="run-meta">' + escapeHtml(run.status || "") + ' · ' + escapeHtml(run.start_time || "") + '</div></span>';
         btn.addEventListener("click", () => {{
           document.querySelectorAll(".run-item").forEach(el => el.classList.remove("active"));
           btn.classList.add("active");
