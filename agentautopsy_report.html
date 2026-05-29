@@ -409,18 +409,91 @@
       color: var(--cyan);
       font-weight: 500;
     }
-    .event.replay-hidden { display: none; }
+    .event.replay-past {
+      opacity: 0.38;
+      filter: saturate(0.6);
+      transform: none !important;
+    }
     .event.replay-current {
       border-left-width: 4px !important;
-      border-left-color: #fff !important;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 24px rgba(34, 211, 238, 0.35) !important;
+      border-left-color: var(--cyan) !important;
+      background: rgba(34, 211, 238, 0.14) !important;
+      opacity: 1 !important;
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.4),
+        0 0 28px rgba(34, 211, 238, 0.45),
+        0 0 56px rgba(34, 211, 238, 0.2) !important;
       transform: none !important;
     }
     .event.replay-error-highlight {
       border-left-color: var(--red) !important;
-      background: rgba(248, 113, 113, 0.1) !important;
-      box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 24px rgba(248, 113, 113, 0.2) !important;
+      background: rgba(248, 113, 113, 0.14) !important;
+      opacity: 1 !important;
+      box-shadow:
+        0 0 0 1px rgba(248, 113, 113, 0.35),
+        0 0 28px rgba(248, 113, 113, 0.35) !important;
     }
+    .replay-counter {
+      margin: -0.65rem 0 1.25rem;
+      min-height: 1.2rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.01em;
+    }
+    .prompt-viewer {
+      margin-top: 0.25rem;
+    }
+    .prompt-section {
+      margin-top: 0.85rem;
+    }
+    .prompt-section:first-child {
+      margin-top: 0;
+    }
+    .prompt-section-head {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      margin-bottom: 0.45rem;
+    }
+    .prompt-block {
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: #0c0c0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: auto;
+    }
+    .prompt-block + .prompt-block {
+      margin-top: 0.5rem;
+    }
+    .prompt-block.system {
+      border-left: 3px solid var(--purple);
+    }
+    .prompt-block.user {
+      border-left: 3px solid var(--cyan);
+    }
+    .prompt-block.assistant {
+      border-left: 3px solid var(--green);
+    }
+    .prompt-empty {
+      font-size: 0.78rem;
+      color: var(--dim);
+      font-style: italic;
+    }
+    .hl-key { color: #67e8f9; }
+    .hl-string { color: #86efac; }
+    .hl-number { color: #fcd34d; }
+    .hl-keyword { color: #f472b6; }
+    .hl-punct { color: #a1a1aa; }
     .chat-section {
       margin-top: 2rem;
       padding-top: 1.5rem;
@@ -551,8 +624,8 @@
     </main>
   </div>
   <script>
-    const runs = [{"id": "0bcfb113-fb60-480c-8fa7-83c1931cf77c", "start_time": "2026-05-29T22:39:05.897372+00:00", "status": "running", "has_error": true}];
-    const runsData = {"0bcfb113-fb60-480c-8fa7-83c1931cf77c": {"items": [{"id": "26570e26-a81f-4c66-be18-f0a32e558e20", "type": "llm_call", "timestamp": "2026-05-29T22:39:07.379744+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "7bedd286-1d51-46ab-9f7f-124f82c91b16", "type": "error", "timestamp": "2026-05-29T22:39:07.385261+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "a35ac8c0-4ab3-4907-949d-7748e817ca00", "type": "llm_call", "timestamp": "2026-05-29T22:39:07.689741+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "fc428cb7-5046-4713-a81a-804cc27e32c9", "type": "http_request", "timestamp": "2026-05-29T22:39:07.776431+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "91b11a68-1497-490c-97fe-d09762dee400", "type": "http_response", "timestamp": "2026-05-29T22:39:09.985440+00:00", "payload": {"status_code": 200}, "cassette_text": "{\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"id\": \"msg_01Xwft5f2wsm8E5PY5Dt93KK\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to network latency, API overload, or an unexpectedly complex completion task.\\n\\nFIX: Implement exponential backoff retry logic with configurable timeouts (e.g., 60s for initial attempt, 90s for retry), add request queuing to batch calls, and consider using gpt-3.5-turbo for faster responses if latency is critical. Alternatively, add timeout instrumentation to identify whether delays occur at network vs. LLM processing stages.\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"usage\": {\n    \"input_tokens\": 160,\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"cache_creation\": {\n      \"ephemeral_5m_input_tokens\": 0,\n      \"ephemeral_1h_input_tokens\": 0\n    },\n    \"output_tokens\": 151,\n    \"service_tier\": \"standard\",\n    \"inference_geo\": \"not_available\"\n  }\n}", "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "bdc2d518-01e7-42ef-9022-d8441d7c391c", "type": "llm_response", "timestamp": "2026-05-29T22:39:10.033277+00:00", "payload": {}, "cassette_text": "{\n  \"id\": \"msg_01Xwft5f2wsm8E5PY5Dt93KK\",\n  \"container\": null,\n  \"content\": [\n    {\n      \"citations\": null,\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to network latency, API overload, or an unexpectedly complex completion task.\\n\\nFIX: Implement exponential backoff retry logic with configurable timeouts (e.g., 60s for initial attempt, 90s for retry), add request queuing to batch calls, and consider using gpt-3.5-turbo for faster responses if latency is critical. Alternatively, add timeout instrumentation to identify whether delays occur at network vs. LLM processing stages.\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"role\": \"assistant\",\n  \"stop_details\": null,\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"inference_geo\": \"not_available\",\n    \"input_tokens\": 160,\n    \"output_tokens\": 151,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}", "detail": "cassette: 1134 bytes \u00b7 2334ms \u00b7 tokens 160/151 \u00b7 $0.000229", "latency_ms": 2334, "token_input": 160, "token_output": 151, "cost_usd": 0.00022875}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 151, "total_tokens": 311, "total_cost_usd": 0.000229, "total_latency_ms": 2334}}};
+    const runs = [{"id": "d03e270f-b1af-4ad7-83b9-89372cab07c1", "start_time": "2026-05-29T23:07:34.364260+00:00", "status": "running", "has_error": true}];
+    const runsData = {"d03e270f-b1af-4ad7-83b9-89372cab07c1": {"items": [{"id": "0837694a-b4cc-4b2c-ada8-07bd83640e52", "type": "llm_call", "timestamp": "2026-05-29T23:07:36.252403+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "6530ce00-6c00-4fda-8712-5d41faa28ebe", "type": "error", "timestamp": "2026-05-29T23:07:36.264216+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "321787d4-0b81-491c-99f7-baf3f80ea56f", "type": "llm_call", "timestamp": "2026-05-29T23:07:36.654451+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "5fc72690-1a02-47d5-bcf7-2c588f7828ec", "type": "http_request", "timestamp": "2026-05-29T23:07:36.820357+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "e962799b-2d23-46ff-9e6d-04c832e30b7f", "type": "http_response", "timestamp": "2026-05-29T23:07:37.090972+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"Invalid authentication credentials\"\n  },\n  \"request_id\": \"req_011CbXhauyLx9ECtR3y7avgw\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "b1dff517-7a3e-4eb1-8265-06ee53126d2f", "type": "error", "timestamp": "2026-05-29T23:07:37.103386+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'Invalid authentication credentials'}, 'request_id': 'req_011CbXhauyLx9ECtR3y7avgw'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'Invalid authentication credentials'}, 'request_id': 'req_011CbXhauyLx9ECtR3y7avgw'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}}};
     const anthropicApiKey = "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";
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
@@ -582,6 +655,175 @@
       return String(value) + (suffix || "");
     }
 
+    function extractMessageContent(content) {
+      if (content === null || content === undefined) {
+        return "";
+      }
+      if (typeof content === "string") {
+        return content;
+      }
+      if (Array.isArray(content)) {
+        return content.map((part) => {
+          if (typeof part === "string") {
+            return part;
+          }
+          if (part && typeof part === "object") {
+            if (typeof part.text === "string") {
+              return part.text;
+            }
+            if (typeof part.content === "string") {
+              return part.content;
+            }
+            return JSON.stringify(part, null, 2);
+          }
+          return String(part);
+        }).join("\n");
+      }
+      if (typeof content === "object") {
+        return JSON.stringify(content, null, 2);
+      }
+      return String(content);
+    }
+
+    function extractPromptSections(payload) {
+      const system = [];
+      const user = [];
+      const assistant = [];
+      const data = payload || {};
+      if (data.system) {
+        system.push(extractMessageContent(data.system));
+      }
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      messages.forEach((msg) => {
+        const role = String(msg.role || "").toLowerCase();
+        const text = extractMessageContent(msg.content);
+        if (!text) {
+          return;
+        }
+        if (role === "system") {
+          system.push(text);
+        } else if (role === "user") {
+          user.push(text);
+        } else if (role === "assistant") {
+          assistant.push(text);
+        }
+      });
+      return { system, user, assistant };
+    }
+
+    function findPairedResponse(events, callIndex) {
+      for (let i = callIndex + 1; i < events.length; i += 1) {
+        const ev = events[i];
+        if (ev.type === "llm_response") {
+          return ev;
+        }
+        if (ev.type === "llm_call" || ev.type === "error") {
+          break;
+        }
+      }
+      return null;
+    }
+
+    function extractAssistantResponse(ev) {
+      const cassetteText = (ev && (ev.paired_response_text || ev.cassette_text)) || "";
+      if (!cassetteText || cassetteText === "(none)") {
+        return "";
+      }
+      try {
+        const data = JSON.parse(cassetteText);
+        if (data.choices && data.choices[0]) {
+          const message = data.choices[0].message || {};
+          const content = extractMessageContent(message.content);
+          if (content) {
+            return content;
+          }
+          return JSON.stringify(data.choices[0], null, 2);
+        }
+        if (Array.isArray(data.content)) {
+          const text = data.content
+            .filter((block) => block && block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n")
+            .trim();
+          if (text) {
+            return text;
+          }
+        }
+        if (typeof data.output_text === "string") {
+          return data.output_text;
+        }
+        return JSON.stringify(data, null, 2);
+      } catch (error) {
+        return cassetteText;
+      }
+    }
+
+    function syntaxHighlight(text) {
+      const escaped = escapeHtml(text);
+      return escaped
+        .replace(/"([^"\\]|\\.)*"/g, '<span class="hl-string">$&</span>')
+        .replace(/\b(true|false|null)\b/g, '<span class="hl-keyword">$1</span>')
+        .replace(/\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g, '<span class="hl-number">$1</span>')
+        .replace(/([{}[\],:])/g, '<span class="hl-punct">$1</span>');
+    }
+
+    function renderPromptBlock(text, role) {
+      if (!text) {
+        return "";
+      }
+      const looksJson = text.trim().startsWith("[") || text.trim().startsWith("{");
+      const body = looksJson ? syntaxHighlight(text) : escapeHtml(text);
+      return '<pre class="prompt-block ' + role + '">' + body + "</pre>";
+    }
+
+    function buildPromptViewer(ev, events, idx) {
+      const sections = extractPromptSections(ev.payload || {});
+      let responseText = extractAssistantResponse(ev);
+      if (!responseText) {
+        const paired = findPairedResponse(events, idx);
+        if (paired) {
+          responseText = extractAssistantResponse(paired);
+        }
+      }
+      let html = '<div class="prompt-viewer">';
+      html += '<div class="inspect-label">Prompt Viewer</div>';
+      html += '<div class="prompt-section"><div class="prompt-section-head">System Prompt</div>';
+      if (sections.system.length) {
+        sections.system.forEach((text) => {
+          html += renderPromptBlock(text, "system");
+        });
+      } else {
+        html += '<div class="prompt-empty">No system prompt</div>';
+      }
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">User Messages</div>';
+      if (sections.user.length) {
+        sections.user.forEach((text) => {
+          html += renderPromptBlock(text, "user");
+        });
+      } else {
+        html += '<div class="prompt-empty">No user messages</div>';
+      }
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">Assistant Messages (request context)</div>';
+      if (sections.assistant.length) {
+        sections.assistant.forEach((text) => {
+          html += renderPromptBlock(text, "assistant");
+        });
+      } else {
+        html += '<div class="prompt-empty">No prior assistant messages in request</div>';
+      }
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">Assistant Response</div>';
+      if (responseText) {
+        html += renderPromptBlock(responseText, "assistant");
+      } else {
+        html += '<div class="prompt-empty">No response recorded</div>';
+      }
+      html += "</div></div>";
+      return html;
+    }
+
     function statusDotClass(run) {
       if ((run.status || "").toLowerCase() === "running") {
         return "dot-running";
@@ -608,13 +850,21 @@
         replayTimer = null;
       }
       const timeline = document.getElementById("timeline-" + runId);
+      const counter = document.getElementById("replay-counter-" + runId);
       if (!timeline) {
         return;
       }
       const eventNodes = Array.from(timeline.querySelectorAll(".event"));
+      const total = eventNodes.length;
+      if (!total) {
+        if (counter) {
+          counter.textContent = "";
+        }
+        return;
+      }
+
       eventNodes.forEach((node) => {
-        node.classList.remove("replay-current", "replay-error-highlight", "replay-hidden");
-        node.classList.add("replay-hidden");
+        node.classList.remove("replay-current", "replay-past", "replay-error-highlight");
         node.classList.remove("expanded");
         const body = node.querySelector(".event-body");
         if (body) {
@@ -623,25 +873,48 @@
       });
 
       let index = 0;
-      function showNext() {
-        if (index >= eventNodes.length) {
-          eventNodes.forEach((node) => {
-            if (node.classList.contains("error")) {
-              node.classList.add("replay-error-highlight");
-            }
-          });
+      function setCounter(text) {
+        if (counter) {
+          counter.textContent = text;
+        }
+      }
+
+      function showStep() {
+        eventNodes.forEach((node, i) => {
+          node.classList.remove("replay-current", "replay-error-highlight");
+          if (i < index) {
+            node.classList.add("replay-past");
+          } else {
+            node.classList.remove("replay-past");
+          }
+        });
+
+        const current = eventNodes[index];
+        const step = index + 1;
+        current.classList.remove("replay-past");
+        current.classList.add("replay-current");
+        current.scrollIntoView({ behavior: "smooth", block: "center" });
+        setCounter("Replaying step " + step + " of " + total);
+
+        if (current.classList.contains("error")) {
+          current.classList.remove("replay-current");
+          current.classList.add("replay-error-highlight");
+          setCounter("Stopped at error — step " + step + " of " + total);
           replayTimer = null;
           return;
         }
-        eventNodes.forEach((node) => node.classList.remove("replay-current"));
-        const current = eventNodes[index];
-        current.classList.remove("replay-hidden");
-        current.classList.add("replay-current");
-        current.scrollIntoView({ behavior: "smooth", block: "center" });
+
         index += 1;
-        replayTimer = setTimeout(showNext, 600);
+        if (index >= total) {
+          eventNodes.forEach((node) => node.classList.remove("replay-current"));
+          setCounter("Replay complete — " + total + " steps");
+          replayTimer = null;
+          return;
+        }
+        replayTimer = setTimeout(showStep, 800);
       }
-      showNext();
+
+      showStep();
     }
 
     function getRunEventsJson(runId) {
@@ -806,6 +1079,7 @@
       html += '<div class="stat-card"><div class="stat-label">Latency</div><div class="stat-value">' + escapeHtml(summary.total_latency_ms || 0) + '<span style="font-size:0.95rem;font-weight:600;color:var(--muted)">ms</span></div>';
       html += '<div class="stat-sub">cumulative LLM time</div></div></div>';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\'' + runId + '\')">▶ Replay Run</button>';
+      html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
@@ -817,6 +1091,9 @@
         }
         html += '<div class="ts">#' + (idx + 1) + ' · ' + escapeHtml(ev.timestamp || "") + '</div>';
         html += '<div class="event-body" id="expand-' + escapeHtml(eventId) + '">';
+        if (ev.type === "llm_call") {
+          html += buildPromptViewer(ev, events, idx);
+        }
         html += '<div class="inspect-label">Payload</div>';
         html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';
         html += '<div class="inspect-label">Cassette</div>';

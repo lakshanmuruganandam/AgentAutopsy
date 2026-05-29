@@ -210,6 +210,7 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
                     token_output,
                     cost_usd,
                 )
+                pending_call["paired_response_text"] = _format_cassette(cassette)
                 pending_call = None
             elif ev_type != "llm_response":
                 pending_call = None
@@ -653,18 +654,91 @@ def _build_html(
       color: var(--cyan);
       font-weight: 500;
     }}
-    .event.replay-hidden {{ display: none; }}
+    .event.replay-past {{
+      opacity: 0.38;
+      filter: saturate(0.6);
+      transform: none !important;
+    }}
     .event.replay-current {{
       border-left-width: 4px !important;
-      border-left-color: #fff !important;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 24px rgba(34, 211, 238, 0.35) !important;
+      border-left-color: var(--cyan) !important;
+      background: rgba(34, 211, 238, 0.14) !important;
+      opacity: 1 !important;
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.4),
+        0 0 28px rgba(34, 211, 238, 0.45),
+        0 0 56px rgba(34, 211, 238, 0.2) !important;
       transform: none !important;
     }}
     .event.replay-error-highlight {{
       border-left-color: var(--red) !important;
-      background: rgba(248, 113, 113, 0.1) !important;
-      box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 24px rgba(248, 113, 113, 0.2) !important;
+      background: rgba(248, 113, 113, 0.14) !important;
+      opacity: 1 !important;
+      box-shadow:
+        0 0 0 1px rgba(248, 113, 113, 0.35),
+        0 0 28px rgba(248, 113, 113, 0.35) !important;
     }}
+    .replay-counter {{
+      margin: -0.65rem 0 1.25rem;
+      min-height: 1.2rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.01em;
+    }}
+    .prompt-viewer {{
+      margin-top: 0.25rem;
+    }}
+    .prompt-section {{
+      margin-top: 0.85rem;
+    }}
+    .prompt-section:first-child {{
+      margin-top: 0;
+    }}
+    .prompt-section-head {{
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      margin-bottom: 0.45rem;
+    }}
+    .prompt-block {{
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: #0c0c0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: auto;
+    }}
+    .prompt-block + .prompt-block {{
+      margin-top: 0.5rem;
+    }}
+    .prompt-block.system {{
+      border-left: 3px solid var(--purple);
+    }}
+    .prompt-block.user {{
+      border-left: 3px solid var(--cyan);
+    }}
+    .prompt-block.assistant {{
+      border-left: 3px solid var(--green);
+    }}
+    .prompt-empty {{
+      font-size: 0.78rem;
+      color: var(--dim);
+      font-style: italic;
+    }}
+    .hl-key {{ color: #67e8f9; }}
+    .hl-string {{ color: #86efac; }}
+    .hl-number {{ color: #fcd34d; }}
+    .hl-keyword {{ color: #f472b6; }}
+    .hl-punct {{ color: #a1a1aa; }}
     .chat-section {{
       margin-top: 2rem;
       padding-top: 1.5rem;
@@ -826,6 +900,175 @@ def _build_html(
       return String(value) + (suffix || "");
     }}
 
+    function extractMessageContent(content) {{
+      if (content === null || content === undefined) {{
+        return "";
+      }}
+      if (typeof content === "string") {{
+        return content;
+      }}
+      if (Array.isArray(content)) {{
+        return content.map((part) => {{
+          if (typeof part === "string") {{
+            return part;
+          }}
+          if (part && typeof part === "object") {{
+            if (typeof part.text === "string") {{
+              return part.text;
+            }}
+            if (typeof part.content === "string") {{
+              return part.content;
+            }}
+            return JSON.stringify(part, null, 2);
+          }}
+          return String(part);
+        }}).join("\\n");
+      }}
+      if (typeof content === "object") {{
+        return JSON.stringify(content, null, 2);
+      }}
+      return String(content);
+    }}
+
+    function extractPromptSections(payload) {{
+      const system = [];
+      const user = [];
+      const assistant = [];
+      const data = payload || {{}};
+      if (data.system) {{
+        system.push(extractMessageContent(data.system));
+      }}
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      messages.forEach((msg) => {{
+        const role = String(msg.role || "").toLowerCase();
+        const text = extractMessageContent(msg.content);
+        if (!text) {{
+          return;
+        }}
+        if (role === "system") {{
+          system.push(text);
+        }} else if (role === "user") {{
+          user.push(text);
+        }} else if (role === "assistant") {{
+          assistant.push(text);
+        }}
+      }});
+      return {{ system, user, assistant }};
+    }}
+
+    function findPairedResponse(events, callIndex) {{
+      for (let i = callIndex + 1; i < events.length; i += 1) {{
+        const ev = events[i];
+        if (ev.type === "llm_response") {{
+          return ev;
+        }}
+        if (ev.type === "llm_call" || ev.type === "error") {{
+          break;
+        }}
+      }}
+      return null;
+    }}
+
+    function extractAssistantResponse(ev) {{
+      const cassetteText = (ev && (ev.paired_response_text || ev.cassette_text)) || "";
+      if (!cassetteText || cassetteText === "(none)") {{
+        return "";
+      }}
+      try {{
+        const data = JSON.parse(cassetteText);
+        if (data.choices && data.choices[0]) {{
+          const message = data.choices[0].message || {{}};
+          const content = extractMessageContent(message.content);
+          if (content) {{
+            return content;
+          }}
+          return JSON.stringify(data.choices[0], null, 2);
+        }}
+        if (Array.isArray(data.content)) {{
+          const text = data.content
+            .filter((block) => block && block.type === "text")
+            .map((block) => block.text || "")
+            .join("\\n")
+            .trim();
+          if (text) {{
+            return text;
+          }}
+        }}
+        if (typeof data.output_text === "string") {{
+          return data.output_text;
+        }}
+        return JSON.stringify(data, null, 2);
+      }} catch (error) {{
+        return cassetteText;
+      }}
+    }}
+
+    function syntaxHighlight(text) {{
+      const escaped = escapeHtml(text);
+      return escaped
+        .replace(/"([^"\\\\]|\\\\.)*"/g, '<span class="hl-string">$&</span>')
+        .replace(/\\b(true|false|null)\\b/g, '<span class="hl-keyword">$1</span>')
+        .replace(/\\b-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b/g, '<span class="hl-number">$1</span>')
+        .replace(/([{{}}[\\],:])/g, '<span class="hl-punct">$1</span>');
+    }}
+
+    function renderPromptBlock(text, role) {{
+      if (!text) {{
+        return "";
+      }}
+      const looksJson = text.trim().startsWith("[") || text.trim().startsWith("{{");
+      const body = looksJson ? syntaxHighlight(text) : escapeHtml(text);
+      return '<pre class="prompt-block ' + role + '">' + body + "</pre>";
+    }}
+
+    function buildPromptViewer(ev, events, idx) {{
+      const sections = extractPromptSections(ev.payload || {{}});
+      let responseText = extractAssistantResponse(ev);
+      if (!responseText) {{
+        const paired = findPairedResponse(events, idx);
+        if (paired) {{
+          responseText = extractAssistantResponse(paired);
+        }}
+      }}
+      let html = '<div class="prompt-viewer">';
+      html += '<div class="inspect-label">Prompt Viewer</div>';
+      html += '<div class="prompt-section"><div class="prompt-section-head">System Prompt</div>';
+      if (sections.system.length) {{
+        sections.system.forEach((text) => {{
+          html += renderPromptBlock(text, "system");
+        }});
+      }} else {{
+        html += '<div class="prompt-empty">No system prompt</div>';
+      }}
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">User Messages</div>';
+      if (sections.user.length) {{
+        sections.user.forEach((text) => {{
+          html += renderPromptBlock(text, "user");
+        }});
+      }} else {{
+        html += '<div class="prompt-empty">No user messages</div>';
+      }}
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">Assistant Messages (request context)</div>';
+      if (sections.assistant.length) {{
+        sections.assistant.forEach((text) => {{
+          html += renderPromptBlock(text, "assistant");
+        }});
+      }} else {{
+        html += '<div class="prompt-empty">No prior assistant messages in request</div>';
+      }}
+      html += "</div>";
+      html += '<div class="prompt-section"><div class="prompt-section-head">Assistant Response</div>';
+      if (responseText) {{
+        html += renderPromptBlock(responseText, "assistant");
+      }} else {{
+        html += '<div class="prompt-empty">No response recorded</div>';
+      }}
+      html += "</div></div>";
+      return html;
+    }}
+
     function statusDotClass(run) {{
       if ((run.status || "").toLowerCase() === "running") {{
         return "dot-running";
@@ -852,13 +1095,21 @@ def _build_html(
         replayTimer = null;
       }}
       const timeline = document.getElementById("timeline-" + runId);
+      const counter = document.getElementById("replay-counter-" + runId);
       if (!timeline) {{
         return;
       }}
       const eventNodes = Array.from(timeline.querySelectorAll(".event"));
+      const total = eventNodes.length;
+      if (!total) {{
+        if (counter) {{
+          counter.textContent = "";
+        }}
+        return;
+      }}
+
       eventNodes.forEach((node) => {{
-        node.classList.remove("replay-current", "replay-error-highlight", "replay-hidden");
-        node.classList.add("replay-hidden");
+        node.classList.remove("replay-current", "replay-past", "replay-error-highlight");
         node.classList.remove("expanded");
         const body = node.querySelector(".event-body");
         if (body) {{
@@ -867,25 +1118,48 @@ def _build_html(
       }});
 
       let index = 0;
-      function showNext() {{
-        if (index >= eventNodes.length) {{
-          eventNodes.forEach((node) => {{
-            if (node.classList.contains("error")) {{
-              node.classList.add("replay-error-highlight");
-            }}
-          }});
+      function setCounter(text) {{
+        if (counter) {{
+          counter.textContent = text;
+        }}
+      }}
+
+      function showStep() {{
+        eventNodes.forEach((node, i) => {{
+          node.classList.remove("replay-current", "replay-error-highlight");
+          if (i < index) {{
+            node.classList.add("replay-past");
+          }} else {{
+            node.classList.remove("replay-past");
+          }}
+        }});
+
+        const current = eventNodes[index];
+        const step = index + 1;
+        current.classList.remove("replay-past");
+        current.classList.add("replay-current");
+        current.scrollIntoView({{ behavior: "smooth", block: "center" }});
+        setCounter("Replaying step " + step + " of " + total);
+
+        if (current.classList.contains("error")) {{
+          current.classList.remove("replay-current");
+          current.classList.add("replay-error-highlight");
+          setCounter("Stopped at error — step " + step + " of " + total);
           replayTimer = null;
           return;
         }}
-        eventNodes.forEach((node) => node.classList.remove("replay-current"));
-        const current = eventNodes[index];
-        current.classList.remove("replay-hidden");
-        current.classList.add("replay-current");
-        current.scrollIntoView({{ behavior: "smooth", block: "center" }});
+
         index += 1;
-        replayTimer = setTimeout(showNext, 600);
+        if (index >= total) {{
+          eventNodes.forEach((node) => node.classList.remove("replay-current"));
+          setCounter("Replay complete — " + total + " steps");
+          replayTimer = null;
+          return;
+        }}
+        replayTimer = setTimeout(showStep, 800);
       }}
-      showNext();
+
+      showStep();
     }}
 
     function getRunEventsJson(runId) {{
@@ -1050,6 +1324,7 @@ def _build_html(
       html += '<div class="stat-card"><div class="stat-label">Latency</div><div class="stat-value">' + escapeHtml(summary.total_latency_ms || 0) + '<span style="font-size:0.95rem;font-weight:600;color:var(--muted)">ms</span></div>';
       html += '<div class="stat-sub">cumulative LLM time</div></div></div>';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
+      html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {{
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
@@ -1061,6 +1336,9 @@ def _build_html(
         }}
         html += '<div class="ts">#' + (idx + 1) + ' · ' + escapeHtml(ev.timestamp || "") + '</div>';
         html += '<div class="event-body" id="expand-' + escapeHtml(eventId) + '">';
+        if (ev.type === "llm_call") {{
+          html += buildPromptViewer(ev, events, idx);
+        }}
         html += '<div class="inspect-label">Payload</div>';
         html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';
         html += '<div class="inspect-label">Cassette</div>';
