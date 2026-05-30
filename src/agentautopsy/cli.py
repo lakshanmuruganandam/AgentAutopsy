@@ -14,12 +14,14 @@ def _usage() -> None:
 Commands:
   runs              List all runs (id, start_time, status)
   replay <run_id>   Print the event report for a run
+  share <run_id>    Export a run trace to a shareable JSON file
   stats             Show fix cache statistics
   ui                Open the web UI in your browser
 
 Examples:
   agentautopsy runs
   agentautopsy replay abc-123-def
+  agentautopsy share abc-123-def
   agentautopsy stats
   agentautopsy ui"""
     )
@@ -53,6 +55,21 @@ def main() -> None:
             sys.exit(2)
         run_id = argv[1]
         print_report(run_id, db)
+        return
+
+    if cmd == "share":
+        if len(argv) < 2:
+            print("usage: agentautopsy share <run_id>", file=sys.stderr)
+            sys.exit(2)
+        run_id = argv[1]
+        from agentautopsy.share import share_run
+
+        try:
+            path = share_run(run_id)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+        print(path)
         return
 
     if cmd == "stats":

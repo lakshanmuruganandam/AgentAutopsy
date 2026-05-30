@@ -500,7 +500,7 @@ def _build_html(
       color: var(--muted);
     }}
     .replay-btn {{
-      margin-bottom: 1.25rem;
+      margin-bottom: 0;
       padding: 0.72rem 1.25rem;
       border: none;
       border-radius: 10px;
@@ -517,6 +517,43 @@ def _build_html(
       transform: translateY(-1px);
       filter: brightness(1.06);
       animation: replay-pulse 1.6s ease-in-out infinite;
+    }}
+    .run-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+    }}
+    .share-btn {{
+      padding: 0.72rem 1.15rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--text);
+      cursor: pointer;
+      background: var(--surface);
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }}
+    .share-btn:hover {{
+      transform: translateY(-1px);
+      border-color: var(--border-hover);
+      background: var(--surface-hover);
+    }}
+    .share-btn.copied {{
+      border-color: rgba(74, 222, 128, 0.35);
+      color: var(--green);
+      background: rgba(74, 222, 128, 0.08);
+    }}
+    .replay-counter {{
+      margin: 0 0 1.25rem;
+      min-height: 1.2rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.01em;
     }}
     .timeline {{
       list-style: none;
@@ -677,14 +714,6 @@ def _build_html(
       box-shadow:
         0 0 0 1px rgba(248, 113, 113, 0.35),
         0 0 28px rgba(248, 113, 113, 0.35) !important;
-    }}
-    .replay-counter {{
-      margin: -0.65rem 0 1.25rem;
-      min-height: 1.2rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--cyan);
-      letter-spacing: 0.01em;
     }}
     .prompt-viewer {{
       margin-top: 0.25rem;
@@ -1089,6 +1118,24 @@ def _build_html(
       event.classList.toggle("expanded");
     }}
 
+    async function shareRun(runId, button) {{
+      const originalLabel = button.textContent;
+      try {{
+        await navigator.clipboard.writeText(runId);
+        button.textContent = "Copied!";
+        button.classList.add("copied");
+        setTimeout(() => {{
+          button.textContent = originalLabel;
+          button.classList.remove("copied");
+        }}, 1800);
+      }} catch (error) {{
+        button.textContent = "Copy failed";
+        setTimeout(() => {{
+          button.textContent = originalLabel;
+        }}, 1800);
+      }}
+    }}
+
     function replayRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -1323,7 +1370,10 @@ def _build_html(
       html += '<div class="stat-sub">estimated USD</div></div>';
       html += '<div class="stat-card"><div class="stat-label">Latency</div><div class="stat-value">' + escapeHtml(summary.total_latency_ms || 0) + '<span style="font-size:0.95rem;font-weight:600;color:var(--muted)">ms</span></div>';
       html += '<div class="stat-sub">cumulative LLM time</div></div></div>';
+      html += '<div class="run-actions">';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
+      html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\\'' + runId + '\\', this)">Share Run</button>';
+      html += '</div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {{
