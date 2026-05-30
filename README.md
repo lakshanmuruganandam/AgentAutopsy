@@ -37,6 +37,8 @@ Windows: `set ANTHROPIC_API_KEY=your-key-here`
 Mac/Linux: `export ANTHROPIC_API_KEY=your-key-here`
 Get your free key at console.anthropic.com
 
+Set `AGENTAUTOPSY_SLACK_WEBHOOK=your-webhook-url` and AgentAutopsy will automatically alert your Slack channel when any agent fails.
+
 ## Quick start
 
 Create test_agent.py and paste this:

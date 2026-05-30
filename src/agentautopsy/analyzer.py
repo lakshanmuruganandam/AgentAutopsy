@@ -1,6 +1,30 @@
 """Fix analyzer for AgentAutopsy."""
 
+import os
+import re
+
 import anthropic
+
+from agentautopsy.alerts import send_slack_alert
+
+
+def _parse_analysis(text: str) -> tuple[str, str]:
+    root_cause = ""
+    fix = ""
+    for line in text.splitlines():
+        if line.startswith("ROOT CAUSE:"):
+            root_cause = line[len("ROOT CAUSE:") :].strip()
+        elif line.startswith("FIX:"):
+            fix = line[len("FIX:") :].strip()
+    if not root_cause:
+        match = re.search(r"ROOT CAUSE:\s*(.+)", text, re.IGNORECASE)
+        if match:
+            root_cause = match.group(1).strip()
+    if not fix:
+        match = re.search(r"FIX:\s*(.+)", text, re.IGNORECASE | re.DOTALL)
+        if match:
+            fix = match.group(1).strip()
+    return root_cause, fix
 
 
 def analyze(pruned_snapshot, failure):
@@ -25,7 +49,19 @@ def analyze(pruned_snapshot, failure):
         ),
         messages=[{"role": "user", "content": user_message}]
     )
-    return response.content[0].text
+    analysis = response.content[0].text
+
+    webhook_url = os.environ.get("AGENTAUTOPSY_SLACK_WEBHOOK")
+    if webhook_url:
+        root_cause, fix = _parse_analysis(analysis)
+        error = f"{failure['error_type']}: {failure['message']}"
+        run_id = failure.get("run_id", "unknown")
+        try:
+            send_slack_alert(webhook_url, run_id, error, root_cause, fix)
+        except Exception as exc:
+            print(f"[AgentAutopsy] Slack alert failed: {exc}")
+
+    return analysis
 
 
 if __name__ == "__main__":
