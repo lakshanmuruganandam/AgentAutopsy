@@ -31,6 +31,19 @@ agentautopsy.watch()
 
 AgentAutopsy automatically intercepts every LLM call, detects failures, finds root cause, outputs a verified fix, and caches it for next time.
 
+## Why AgentAutopsy vs LangSmith / Helicone?
+
+| Feature | AgentAutopsy | LangSmith | Helicone |
+|---------|-------------|-----------|----------|
+| Works offline | ✅ | ❌ | ❌ |
+| Zero config | ✅ | ❌ | ❌ |
+| Replay failed runs | ✅ | ❌ | ❌ |
+| AI debug assistant | ✅ | ❌ | ❌ |
+| Prompt diffing | ✅ | ❌ | ❌ |
+| Divergence detection | ✅ | ❌ | ❌ |
+| Free and open source | ✅ | partial | ❌ |
+| No cloud required | ✅ | ❌ | ❌ |
+
 ## Setup
 
 Windows: `set ANTHROPIC_API_KEY=your-key-here`
