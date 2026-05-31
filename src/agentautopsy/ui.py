@@ -8,6 +8,7 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
+from agentautopsy.analyzer import detect_divergence
 from agentautopsy.db import get_db
 
 
@@ -230,6 +231,11 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
     for run in runs:
         run_data = runs_data.get(run["id"], {})
         run["has_error"] = run_data.get("root_cause") is not None
+        try:
+            run_data["divergences"] = detect_divergence(run["id"])
+        except Exception:
+            run_data["divergences"] = []
+        runs_data[run["id"]] = run_data
 
     return runs, runs_data
 
@@ -409,6 +415,70 @@ def _build_html(
         radial-gradient(ellipse 75% 55% at 50% 35%, rgba(30, 58, 138, 0.16) 0%, rgba(15, 23, 42, 0.06) 45%, transparent 72%),
         transparent;
     }}
+    .run-body {{
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }}
+    .run-main {{
+      flex: 1;
+      min-width: 0;
+    }}
+    .replay-panel {{
+      width: 340px;
+      flex-shrink: 0;
+      display: none;
+      position: sticky;
+      top: 84px;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      padding: 1rem 1.1rem;
+      border-radius: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      background:
+        radial-gradient(ellipse 90% 60% at 50% 0%, rgba(34, 211, 238, 0.08) 0%, transparent 70%),
+        var(--surface);
+      box-shadow: var(--shadow), 0 0 24px rgba(34, 211, 238, 0.12);
+    }}
+    .replay-panel.visible {{
+      display: block;
+    }}
+    .replay-panel-head {{
+      margin: 0 0 1rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--cyan);
+    }}
+    .replay-panel-section {{
+      margin-top: 0.85rem;
+    }}
+    .replay-panel-section:first-of-type {{
+      margin-top: 0;
+    }}
+    .replay-panel-label {{
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      margin-bottom: 0.45rem;
+    }}
+    .replay-panel-stat {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      color: var(--cyan);
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+    }}
+    .replay-panel .prompt-block {{
+      margin: 0;
+      max-height: 220px;
+      overflow-y: auto;
+    }}
     .empty {{
       color: var(--muted);
       padding: 3rem 1rem;
@@ -524,6 +594,64 @@ def _build_html(
       align-items: center;
       gap: 0.65rem;
       margin-bottom: 1.25rem;
+    }}
+    .divergence-section {{
+      margin-bottom: 1.25rem;
+    }}
+    .divergence-head {{
+      margin: 0 0 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+    }}
+    .divergence-ok {{
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(74, 222, 128, 0.28);
+      background: rgba(74, 222, 128, 0.08);
+      color: var(--green);
+      font-size: 0.88rem;
+      font-weight: 600;
+    }}
+    .divergence-cards {{
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }}
+    .divergence-card {{
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(250, 204, 21, 0.28);
+      background: rgba(250, 204, 21, 0.08);
+      box-shadow: var(--shadow);
+    }}
+    .divergence-card-title {{
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--yellow);
+      margin-bottom: 0.55rem;
+    }}
+    .divergence-card-row {{
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }}
+    .divergence-card-label {{
+      color: var(--dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.68rem;
+    }}
+    .divergence-card-value {{
+      color: var(--muted);
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.76rem;
     }}
     .share-btn {{
       padding: 0.72rem 1.15rem;
@@ -878,6 +1006,12 @@ def _build_html(
       .layout {{ grid-template-columns: 1fr; }}
       .sidebar {{ border-right: none; border-bottom: 1px solid var(--border); max-height: 220px; }}
       .stat-grid {{ grid-template-columns: 1fr; }}
+      .run-body {{ flex-direction: column; }}
+      .replay-panel {{
+        width: 100%;
+        position: static;
+        max-height: none;
+      }}
     }}
   </style>
 </head>
@@ -1118,6 +1252,167 @@ def _build_html(
       event.classList.toggle("expanded");
     }}
 
+    function formatObjectText(value) {{
+      if (value === null || value === undefined) {{
+        return "";
+      }}
+      if (typeof value === "string") {{
+        return value;
+      }}
+      try {{
+        return JSON.stringify(value, null, 2);
+      }} catch (error) {{
+        return String(value);
+      }}
+    }}
+
+    function findPairedToolResult(events, callIndex) {{
+      for (let i = callIndex + 1; i < events.length; i += 1) {{
+        const ev = events[i];
+        if (ev.type === "tool_result") {{
+          return ev;
+        }}
+        if (ev.type === "tool_call" || ev.type === "error") {{
+          break;
+        }}
+      }}
+      return null;
+    }}
+
+    function estimateContextSize(sections) {{
+      let chars = 0;
+      sections.system.forEach((text) => {{ chars += text.length; }});
+      sections.user.forEach((text) => {{ chars += text.length; }});
+      sections.assistant.forEach((text) => {{ chars += text.length; }});
+      return {{
+        chars: chars,
+        tokens: Math.max(1, Math.ceil(chars / 4)),
+      }};
+    }}
+
+    function renderReplayPanelSection(label, content, role) {{
+      const text = formatObjectText(content);
+      if (!text) {{
+        return "";
+      }}
+      const roleClass = role ? " " + role : "";
+      return (
+        '<div class="replay-panel-section">' +
+        '<div class="replay-panel-label">' + escapeHtml(label) + "</div>" +
+        '<pre class="prompt-block' + roleClass + '">' + escapeHtml(text) + "</pre>" +
+        "</div>"
+      );
+    }}
+
+    function hideReplayPanel() {{
+      const panel = document.getElementById("replay-panel");
+      if (!panel) {{
+        return;
+      }}
+      panel.classList.remove("visible");
+      panel.innerHTML = "";
+    }}
+
+    function showReplayPanel(contentHtml) {{
+      const panel = document.getElementById("replay-panel");
+      if (!panel) {{
+        return;
+      }}
+      panel.innerHTML = contentHtml;
+      panel.classList.add("visible");
+    }}
+
+    function buildReplayPanelHtml(runId, eventIndex) {{
+      const events = (runsData[runId] || {{ items: [] }}).items || [];
+      const ev = events[eventIndex];
+      if (!ev) {{
+        return (
+          '<div class="replay-panel-head">Step Details</div>' +
+          '<div class="prompt-empty">No event data</div>'
+        );
+      }}
+
+      let html =
+        '<div class="replay-panel-head">Step ' +
+        (eventIndex + 1) +
+        " · " +
+        escapeHtml(ev.type) +
+        "</div>";
+
+      if (ev.type === "llm_call") {{
+        const sections = extractPromptSections(ev.payload || {{}});
+        const size = estimateContextSize(sections);
+        html += renderReplayPanelSection("System prompt", sections.system.join("\\n\\n"), "system");
+        html += renderReplayPanelSection("User messages", sections.user.join("\\n\\n"), "user");
+        html += renderReplayPanelSection(
+          "Previous assistant messages",
+          sections.assistant.join("\\n\\n"),
+          "assistant"
+        );
+        html +=
+          '<div class="replay-panel-section">' +
+          '<div class="replay-panel-label">Full context window size</div>' +
+          '<div class="replay-panel-stat">' +
+          size.chars.toLocaleString() +
+          " chars · ~" +
+          size.tokens.toLocaleString() +
+          " tokens (est.)</div></div>";
+      }} else if (ev.type === "tool_call") {{
+        const payload = ev.payload || {{}};
+        const paired = findPairedToolResult(events, eventIndex);
+        const output = paired ? (paired.payload || {{}}).output : null;
+        html += renderReplayPanelSection("Tool name", payload.tool || "unknown", "");
+        html += renderReplayPanelSection("Tool input", payload.input, "user");
+        html += renderReplayPanelSection(
+          "Tool output",
+          output != null ? output : "No output recorded",
+          "assistant"
+        );
+      }} else if (ev.type === "error") {{
+        const payload = ev.payload || {{}};
+        const stack = payload.stack || payload.stacktrace || payload.traceback || "";
+        html += renderReplayPanelSection("Error type", payload.error_type || "Error", "");
+        html += renderReplayPanelSection("Full error message", payload.message || "", "");
+        html += renderReplayPanelSection(
+          "Stack trace",
+          stack || "Not available",
+          stack ? "system" : ""
+        );
+      }} else {{
+        html += renderReplayPanelSection("Event", ev.detail || ev.type, "");
+      }}
+
+      return html;
+    }}
+
+    function updateReplayPanel(runId, eventIndex) {{
+      showReplayPanel(buildReplayPanelHtml(runId, eventIndex));
+    }}
+
+    function buildDivergenceSection(divergences) {{
+      const items = divergences || [];
+      let html = '<div class="divergence-section">';
+      html += '<h3 class="divergence-head">Divergence</h3>';
+      if (!items.length) {{
+        html += '<div class="divergence-ok">No divergence detected</div>';
+      }} else {{
+        html += '<div class="divergence-cards">';
+        items.forEach((item) => {{
+          html += '<div class="divergence-card">';
+          html += '<div class="divergence-card-title">' + escapeHtml(item.what_changed || "Divergence detected") + "</div>";
+          html += '<div class="divergence-card-row">';
+          html += '<div class="divergence-card-label">Previous</div>';
+          html += '<div class="divergence-card-value">' + escapeHtml(item.previous || "—") + "</div>";
+          html += '<div class="divergence-card-label">Current</div>';
+          html += '<div class="divergence-card-value">' + escapeHtml(item.current || "—") + "</div>";
+          html += "</div></div>";
+        }});
+        html += "</div>";
+      }}
+      html += "</div>";
+      return html;
+    }}
+
     async function shareRun(runId, button) {{
       const originalLabel = button.textContent;
       try {{
@@ -1141,6 +1436,7 @@ def _build_html(
         clearTimeout(replayTimer);
         replayTimer = null;
       }}
+      hideReplayPanel();
       const timeline = document.getElementById("timeline-" + runId);
       const counter = document.getElementById("replay-counter-" + runId);
       if (!timeline) {{
@@ -1165,6 +1461,12 @@ def _build_html(
       }});
 
       let index = 0;
+      function finishReplay(message) {{
+        setCounter(message);
+        replayTimer = null;
+        setTimeout(hideReplayPanel, 1200);
+      }}
+
       function setCounter(text) {{
         if (counter) {{
           counter.textContent = text;
@@ -1187,20 +1489,19 @@ def _build_html(
         current.classList.add("replay-current");
         current.scrollIntoView({{ behavior: "smooth", block: "center" }});
         setCounter("Replaying step " + step + " of " + total);
+        updateReplayPanel(runId, index);
 
         if (current.classList.contains("error")) {{
           current.classList.remove("replay-current");
           current.classList.add("replay-error-highlight");
-          setCounter("Stopped at error — step " + step + " of " + total);
-          replayTimer = null;
+          finishReplay("Stopped at error — step " + step + " of " + total);
           return;
         }}
 
         index += 1;
         if (index >= total) {{
           eventNodes.forEach((node) => node.classList.remove("replay-current"));
-          setCounter("Replay complete — " + total + " steps");
-          replayTimer = null;
+          finishReplay("Replay complete — " + total + " steps");
           return;
         }}
         replayTimer = setTimeout(showStep, 800);
@@ -1354,11 +1655,13 @@ def _build_html(
         clearTimeout(replayTimer);
         replayTimer = null;
       }}
+      hideReplayPanel();
       const data = runsData[runId] || {{ items: [], root_cause: null, summary: {{}} }};
       const events = data.items || [];
       const run = runs.find(r => r.id === runId);
       const summary = data.summary || {{}};
-      let html = '<div class="run-header"><h2>Run timeline</h2><p><code>' + escapeHtml(runId) + '</code></p>';
+      let html = '<div class="run-body"><div class="run-main">';
+      html += '<div class="run-header"><h2>Run timeline</h2><p><code>' + escapeHtml(runId) + '</code></p>';
       if (run) {{
         html += '<p class="run-sub">Status <strong>' + escapeHtml(run.status || "") + '</strong> · ' + escapeHtml(run.start_time || "") + '</p>';
       }}
@@ -1375,6 +1678,7 @@ def _build_html(
       html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\\'' + runId + '\\', this)">Share Run</button>';
       html += '</div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
+      html += buildDivergenceSection(data.divergences || []);
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {{
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
@@ -1416,6 +1720,7 @@ def _build_html(
       html += '<div class="chat-error" id="chat-error" style="display:none"></div>';
       html += '<div class="chat-hint" id="chat-hint"></div>';
       html += '</div>';
+      html += '</div><aside class="replay-panel" id="replay-panel"></aside></div>';
       detail.innerHTML = html;
       renderChatUI(runId);
     }}
