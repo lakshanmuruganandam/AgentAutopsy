@@ -250,6 +250,7 @@ def _build_html(
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
+    fix_api_base_json = json.dumps("")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -737,6 +738,41 @@ def _build_html(
       color: var(--green);
       background: rgba(74, 222, 128, 0.08);
     }}
+    .autofix-btn {{
+      padding: 0.72rem 1.15rem;
+      border: 1px solid rgba(167, 139, 250, 0.28);
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #ede9fe;
+      cursor: pointer;
+      background: rgba(167, 139, 250, 0.12);
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }}
+    .autofix-btn:hover:not(:disabled) {{
+      transform: translateY(-1px);
+      border-color: rgba(167, 139, 250, 0.45);
+      background: rgba(167, 139, 250, 0.18);
+    }}
+    .autofix-btn:disabled {{
+      opacity: 0.55;
+      cursor: not-allowed;
+    }}
+    .autofix-status {{
+      margin: -0.65rem 0 1.25rem;
+      min-height: 1.2rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }}
+    .autofix-status.success {{
+      color: var(--green);
+    }}
+    .autofix-status.error {{
+      color: #fca5a5;
+    }}
     .replay-counter {{
       margin: 0 0 1.25rem;
       min-height: 1.2rem;
@@ -1099,6 +1135,7 @@ def _build_html(
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
+    const fixApiBase = {fix_api_base_json};
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
@@ -1548,6 +1585,60 @@ def _build_html(
       }}
     }}
 
+    function setAutofixStatus(message, kind) {{
+      const status = document.getElementById("autofix-status");
+      if (!status) {{
+        return;
+      }}
+      status.textContent = message || "";
+      status.classList.remove("success", "error");
+      if (kind) {{
+        status.classList.add(kind);
+      }}
+    }}
+
+    async function autoFixRun(runId, button) {{
+      if (!fixApiBase) {{
+        setAutofixStatus("Auto Fix requires agentautopsy ui server. Run: agentautopsy fix " + runId, "error");
+        return;
+      }}
+      const createPr = window.confirm("Create a GitHub PR after applying the fix?");
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Applying fix...";
+      setAutofixStatus("Applying fix and running tests...", "");
+      try {{
+        const response = await fetch(fixApiBase + "/api/fix/" + encodeURIComponent(runId), {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{ create_pr: createPr }}),
+        }});
+        const result = await response.json();
+        if (!response.ok) {{
+          throw new Error(result.error || "Fix request failed");
+        }}
+        let message = result.details || (result.success ? "Fix applied successfully." : "Fix failed.");
+        if (result.test_output) {{
+          message += "\\n\\nTests:\\n" + result.test_output;
+        }}
+        if (result.pr && result.pr.pr_url) {{
+          message += "\\n\\nPR: " + result.pr.pr_url;
+        }} else if (result.pr_error) {{
+          message += "\\n\\nPR error: " + result.pr_error;
+        }}
+        setAutofixStatus(message, result.success ? "success" : "error");
+        button.textContent = result.success ? "Fixed!" : "Fix failed";
+      }} catch (error) {{
+        setAutofixStatus(error.message || "Auto Fix failed", "error");
+        button.textContent = "Fix failed";
+      }} finally {{
+        setTimeout(() => {{
+          button.textContent = originalLabel;
+          button.disabled = !fixApiBase;
+        }}, 2200);
+      }}
+    }}
+
     function replayRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -1793,7 +1884,9 @@ def _build_html(
       html += '<div class="run-actions">';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
       html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\\'' + runId + '\\', this)">Share Run</button>';
+      html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\\'' + runId + '\\', this)"' + (fixApiBase ? "" : " disabled") + '>Auto Fix</button>';
       html += '</div>';
+      html += '<div class="autofix-status" id="autofix-status"></div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += buildDivergenceSection(data.divergences || []);
       html += buildPromptDiffSection(data.prompt_diff || null);
