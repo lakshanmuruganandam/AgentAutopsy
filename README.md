@@ -2,6 +2,13 @@
 
 > When your agent fails, this tells you exactly why.
 
+## Why this exists
+
+Every time an AI agent fails, you get a useless stack trace.
+No context. No reason. No fix.
+AgentAutopsy gives you the exact failure step, root cause,
+and a verified fix — automatically.
+
 ![demo](assets/demo.gif)
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
@@ -19,6 +26,32 @@ agentautopsy stats       # fix cache stats
 
 ```bash
 pip install agentautopsy
+```
+
+## Examples
+
+```python
+# Basic usage
+import agentautopsy
+agentautopsy.watch()
+
+# LangChain
+from agentautopsy import get_callback_handler
+handler = get_callback_handler()
+agent.run(input, config={"callbacks": [handler]})
+```
+
+```bash
+# Slack alerts
+export AGENTAUTOPSY_SLACK_WEBHOOK=https://hooks.slack.com/...
+
+# Web UI
+agentautopsy ui
+
+# CLI
+agentautopsy runs
+agentautopsy replay <run_id>
+agentautopsy stats
 ```
 
 ## Usage
@@ -74,3 +107,15 @@ Python 3.11+, ANTHROPIC_API_KEY
 ## License
 
 Apache 2.0
+
+## Roadmap
+
+- [ ] VS Code extension
+- [ ] GitHub Actions integration  
+- [ ] Multi-agent tracing
+- [ ] Auto-fix applier
+- [x] LangChain support
+- [x] Slack alerts
+- [x] Web UI
+- [x] Prompt diffing
+- [x] Divergence detection
