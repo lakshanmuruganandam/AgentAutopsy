@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -243,11 +242,10 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
 def _build_html(
     runs: list[dict[str, Any]],
     runs_data: dict[str, dict[str, Any]],
-    anthropic_api_key: str = "",
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
-    api_key_json = json.dumps(anthropic_api_key)
+    api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1035,6 +1033,8 @@ def _build_html(
     const runs = {runs_json};
     const runsData = {data_json};
     const anthropicApiKey = {api_key_json};
+    const anthropicApiKeyConfigured =
+      anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
@@ -1564,7 +1564,7 @@ def _build_html(
         return;
       }}
       showChatError("");
-      if (!anthropicApiKey) {{
+      if (!anthropicApiKeyConfigured) {{
         askBtn.disabled = true;
         if (hint) {{
           hint.textContent = "Set ANTHROPIC_API_KEY and run agentautopsy ui to enable chat.";
@@ -1595,7 +1595,7 @@ def _build_html(
       if (!question) {{
         return;
       }}
-      if (!anthropicApiKey) {{
+      if (!anthropicApiKeyConfigured) {{
         showChatError("Set ANTHROPIC_API_KEY and regenerate the report.");
         return;
       }}
@@ -1645,7 +1645,7 @@ def _build_html(
         showChatError(error.message || "Failed to reach Anthropic API");
       }} finally {{
         chatLoadingRunId = null;
-        askBtn.disabled = !anthropicApiKey;
+        askBtn.disabled = !anthropicApiKeyConfigured;
         renderChatMessages(runId);
       }}
     }}
@@ -1756,7 +1756,7 @@ def start_ui() -> Path:
     """Build a self-contained HTML report and open it in the browser."""
     db = get_db()
     runs, runs_data = _load_data(db)
-    html = _build_html(runs, runs_data, os.environ.get("ANTHROPIC_API_KEY", ""))
+    html = _build_html(runs, runs_data)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     webbrowser.open(output_path.resolve().as_uri())
