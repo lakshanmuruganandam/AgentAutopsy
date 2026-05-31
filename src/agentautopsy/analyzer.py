@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import difflib
 from statistics import mean
 from typing import Any
 
@@ -199,6 +200,120 @@ def _compute_divergences(db: Any, run_id: str) -> list[dict[str, str]]:
             )
 
     return divergences
+
+
+def _message_content(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, dict):
+                if isinstance(part.get("text"), str):
+                    parts.append(part["text"])
+                elif isinstance(part.get("content"), str):
+                    parts.append(part["content"])
+                else:
+                    parts.append(json.dumps(part, default=str))
+            else:
+                parts.append(str(part))
+        return "\n".join(parts)
+    if isinstance(content, dict):
+        return json.dumps(content, indent=2, default=str)
+    return str(content)
+
+
+def _extract_prompt_lines(events: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for event in events:
+        if event["type"] != "llm_call":
+            continue
+        payload = event["payload"]
+        system = payload.get("system")
+        if system:
+            lines.append(f"[system] {_message_content(system)}")
+        for message in payload.get("messages") or []:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role", "unknown"))
+            content = _message_content(message.get("content"))
+            if content:
+                lines.extend(f"[{role}] {part}" for part in content.splitlines() or [content])
+    return lines
+
+
+def _find_previous_run_id(db: Any, run_id: str) -> str | None:
+    if not db["runs"].exists():
+        return None
+    previous_id: str | None = None
+    for row in db["runs"].rows_where(order_by="start_time"):
+        if row["id"] == run_id:
+            return previous_id
+        previous_id = row["id"]
+    return None
+
+
+def _compute_line_diff(
+    previous_lines: list[str], current_lines: list[str]
+) -> list[dict[str, str]]:
+    matcher = difflib.SequenceMatcher(None, previous_lines, current_lines)
+    diff_lines: list[dict[str, str]] = []
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for line in previous_lines[i1:i2]:
+                diff_lines.append({"type": "unchanged", "text": line})
+        elif tag == "delete":
+            for line in previous_lines[i1:i2]:
+                diff_lines.append({"type": "removed", "text": line})
+        elif tag == "insert":
+            for line in current_lines[j1:j2]:
+                diff_lines.append({"type": "added", "text": line})
+        elif tag == "replace":
+            old_lines = previous_lines[i1:i2]
+            new_lines = current_lines[j1:j2]
+            max_len = max(len(old_lines), len(new_lines))
+            for index in range(max_len):
+                old_line = old_lines[index] if index < len(old_lines) else None
+                new_line = new_lines[index] if index < len(new_lines) else None
+                if old_line is not None and new_line is not None:
+                    if old_line == new_line:
+                        diff_lines.append({"type": "unchanged", "text": old_line})
+                    else:
+                        diff_lines.append(
+                            {
+                                "type": "changed",
+                                "text": new_line,
+                                "previous": old_line,
+                            }
+                        )
+                elif old_line is not None:
+                    diff_lines.append({"type": "removed", "text": old_line})
+                elif new_line is not None:
+                    diff_lines.append({"type": "added", "text": new_line})
+
+    return diff_lines
+
+
+def diff_prompts(run_id: str) -> dict[str, Any]:
+    """Compare prompt lines in the current run against the previous run."""
+    db = get_db()
+    if not db["runs"].exists():
+        return {"has_previous": False, "lines": []}
+
+    previous_run_id = _find_previous_run_id(db, run_id)
+    if not previous_run_id:
+        return {"has_previous": False, "lines": []}
+
+    previous_lines = _extract_prompt_lines(_load_run_events(db, previous_run_id))
+    current_lines = _extract_prompt_lines(_load_run_events(db, run_id))
+    return {
+        "has_previous": True,
+        "previous_run_id": previous_run_id,
+        "lines": _compute_line_diff(previous_lines, current_lines),
+    }
 
 
 def detect_divergence(run_id: str) -> list[dict[str, str]]:

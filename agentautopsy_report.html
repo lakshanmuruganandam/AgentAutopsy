@@ -402,6 +402,66 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.76rem;
     }
+    .prompt-diff-section {
+      margin-bottom: 1.25rem;
+    }
+    .prompt-diff-head {
+      margin: 0 0 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+    }
+    .prompt-diff-empty {
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .prompt-diff-block {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0c0c0f;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }
+    .prompt-diff-line {
+      padding: 0.28rem 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-left: 3px solid transparent;
+    }
+    .prompt-diff-line.added {
+      color: #86efac;
+      background: rgba(74, 222, 128, 0.1);
+      border-left-color: var(--green);
+    }
+    .prompt-diff-line.removed {
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.1);
+      border-left-color: var(--red);
+    }
+    .prompt-diff-line.unchanged {
+      color: var(--dim);
+      background: transparent;
+    }
+    .prompt-diff-prefix {
+      display: inline-block;
+      width: 1.1rem;
+      color: inherit;
+      opacity: 0.85;
+      user-select: none;
+    }
+    .prompt-diff-meta {
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
     .share-btn {
       padding: 0.72rem 1.15rem;
       border: 1px solid var(--border);
@@ -781,9 +841,11 @@
     </main>
   </div>
   <script>
-    const runs = [{"id": "6bb684c9-8655-47f9-a681-c460f7d07083", "start_time": "2026-05-31T11:39:15.859091+00:00", "status": "running", "has_error": true}];
-    const runsData = {"6bb684c9-8655-47f9-a681-c460f7d07083": {"items": [{"id": "11db557c-ef5b-4513-a840-40faccd1fdcc", "type": "llm_call", "timestamp": "2026-05-31T11:39:17.939138+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "682d3b1d-3ac8-4ecf-a3b4-14fb573da336", "type": "error", "timestamp": "2026-05-31T11:39:17.946872+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "8e20eb2d-f2aa-4501-8127-ec3a8e220fc1", "type": "llm_call", "timestamp": "2026-05-31T11:39:18.258625+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "fbb3cdd7-441d-446b-a827-09a12c9b277b", "type": "http_request", "timestamp": "2026-05-31T11:39:18.424372+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "f2eec9f9-e193-4a3a-9e19-bd5300f60d29", "type": "http_response", "timestamp": "2026-05-31T11:39:21.082930+00:00", "payload": {"status_code": 200}, "cassette_text": "{\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"id\": \"msg_01RDi73jbMmJ4Wqfbe67DZCe\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with \\\"fetch data\\\" prompt\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to API latency, network conditions, or an overloaded service.\\n\\nFIX: Implement exponential backoff retry logic with a longer timeout (60-90s), add request queuing to batch calls, or use a streaming endpoint. Example:\\n```python\\ntimeout = 60\\nmax_retries = 3\\nfor attempt in range(max_retries):\\n    try:\\n        response = openai.ChatCompletion.create(\\n            model=\\\"gpt-4\\\",\\n            messages=messages,\\n            timeout=timeout\\n        )\\n        break\\n    except TimeoutError:\\n        if attempt < max_retries - 1:\\n            wait_time = 2 ** attempt\\n            time.sleep(wait_time)\\n        else:\\n            raise\\n```\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"usage\": {\n    \"input_tokens\": 160,\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"cache_creation\": {\n      \"ephemeral_5m_input_tokens\": 0,\n      \"ephemeral_1h_input_tokens\": 0\n    },\n    \"output_tokens\": 221,\n    \"service_tier\": \"standard\",\n    \"inference_geo\": \"not_available\"\n  }\n}", "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "eca559cd-82a4-43c4-aa37-ce9a34cb76a2", "type": "llm_response", "timestamp": "2026-05-31T11:39:21.134378+00:00", "payload": {}, "cassette_text": "{\n  \"id\": \"msg_01RDi73jbMmJ4Wqfbe67DZCe\",\n  \"container\": null,\n  \"content\": [\n    {\n      \"citations\": null,\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with \\\"fetch data\\\" prompt\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to API latency, network conditions, or an overloaded service.\\n\\nFIX: Implement exponential backoff retry logic with a longer timeout (60-90s), add request queuing to batch calls, or use a streaming endpoint. Example:\\n```python\\ntimeout = 60\\nmax_retries = 3\\nfor attempt in range(max_retries):\\n    try:\\n        response = openai.ChatCompletion.create(\\n            model=\\\"gpt-4\\\",\\n            messages=messages,\\n            timeout=timeout\\n        )\\n        break\\n    except TimeoutError:\\n        if attempt < max_retries - 1:\\n            wait_time = 2 ** attempt\\n            time.sleep(wait_time)\\n        else:\\n            raise\\n```\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"role\": \"assistant\",\n  \"stop_details\": null,\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"inference_geo\": \"not_available\",\n    \"input_tokens\": 160,\n    \"output_tokens\": 221,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}", "detail": "cassette: 1352 bytes \u00b7 2866ms \u00b7 tokens 160/221 \u00b7 $0.000316", "latency_ms": 2866, "token_input": 160, "token_output": 221, "cost_usd": 0.00031625}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 221, "total_tokens": 381, "total_cost_usd": 0.000316, "total_latency_ms": 2866}, "divergences": []}};
-    const anthropicApiKey = "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";
+    const runs = [{"id": "55a71905-2d1c-4881-b42c-6c9cd4aea626", "start_time": "2026-05-31T14:03:46.799183+00:00", "status": "running", "has_error": true}, {"id": "7ce8ad1e-11f5-44d4-855c-fba15024d30b", "start_time": "2026-05-31T14:00:07.978490+00:00", "status": "running", "has_error": true}, {"id": "32914670-e670-4c8b-93a6-5fc05b1c0d78", "start_time": "2026-05-31T14:00:04.167511+00:00", "status": "running", "has_error": true}, {"id": "b9fcd4b2-64e5-40a5-acaf-0dc5861a56ae", "start_time": "2026-05-31T13:59:59.626075+00:00", "status": "running", "has_error": true}, {"id": "935d2162-f05f-465a-b4fb-6f3ce2e5eb3d", "start_time": "2026-05-31T11:48:02.273307+00:00", "status": "running", "has_error": true}];
+    const runsData = {"55a71905-2d1c-4881-b42c-6c9cd4aea626": {"items": [{"id": "4891d21c-a33e-4a7f-808b-5662959390f0", "type": "llm_call", "timestamp": "2026-05-31T14:03:48.492502+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "75f145b5-c6f6-4810-9fa9-4602f4f43df0", "type": "error", "timestamp": "2026-05-31T14:03:48.498547+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "b8d5de93-29c9-4d34-b8d9-3cbdf88b459a", "type": "llm_call", "timestamp": "2026-05-31T14:03:48.756803+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "bec71b05-be67-4abc-928d-c22f48392ab4", "type": "http_request", "timestamp": "2026-05-31T14:03:48.881683+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "2c6a1eb4-df27-48b1-a2eb-f68cb57daa2c", "type": "http_response", "timestamp": "2026-05-31T14:03:49.147799+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"invalid x-api-key\"\n  },\n  \"request_id\": \"req_011CbamjeND6hvZwiodtWqb7\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "997d711e-2fec-4f18-a9cc-30edaa7c258d", "type": "error", "timestamp": "2026-05-31T14:03:49.156616+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamjeND6hvZwiodtWqb7'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamjeND6hvZwiodtWqb7'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": true, "previous_run_id": "7ce8ad1e-11f5-44d4-855c-fba15024d30b", "lines": [{"type": "unchanged", "text": "[user] fetch data"}, {"type": "unchanged", "text": "[user] Error: TimeoutError: request timed out after 30s"}, {"type": "unchanged", "text": "[user] Trace:"}, {"type": "unchanged", "text": "[user] - [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}"}, {"type": "unchanged", "text": "[user] - [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}}, "7ce8ad1e-11f5-44d4-855c-fba15024d30b": {"items": [{"id": "62b638b4-a9bd-4211-a948-ec3900133ba9", "type": "llm_call", "timestamp": "2026-05-31T14:00:09.555959+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "db6ec52a-cdeb-4980-852d-7a5118858bd4", "type": "error", "timestamp": "2026-05-31T14:00:09.565443+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "5081dcfb-f273-4333-8765-101e7219979d", "type": "llm_call", "timestamp": "2026-05-31T14:00:09.882588+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "d0f281bc-c359-40e8-b29a-378b49546234", "type": "http_request", "timestamp": "2026-05-31T14:00:09.958487+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "48f1ae5a-0b24-4e90-90c4-c4c2fc42dcf4", "type": "http_response", "timestamp": "2026-05-31T14:00:10.175968+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"invalid x-api-key\"\n  },\n  \"request_id\": \"req_011CbamTWDsf4uMa6uCR7mzu\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "401df3c9-dd66-48ac-97fd-153e92c587b4", "type": "error", "timestamp": "2026-05-31T14:00:10.183444+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamTWDsf4uMa6uCR7mzu'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamTWDsf4uMa6uCR7mzu'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": true, "previous_run_id": "32914670-e670-4c8b-93a6-5fc05b1c0d78", "lines": [{"type": "unchanged", "text": "[user] fetch data"}, {"type": "unchanged", "text": "[user] Error: TimeoutError: request timed out after 30s"}, {"type": "unchanged", "text": "[user] Trace:"}, {"type": "unchanged", "text": "[user] - [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}"}, {"type": "unchanged", "text": "[user] - [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}}, "32914670-e670-4c8b-93a6-5fc05b1c0d78": {"items": [{"id": "d411f328-5623-48ce-973b-35268af99530", "type": "llm_call", "timestamp": "2026-05-31T14:00:05.780532+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c01525c5-c510-42c5-9dc0-4a92761c9be2", "type": "error", "timestamp": "2026-05-31T14:00:05.785004+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "4233ac4d-761f-45e0-8def-f2fd2489a8dd", "type": "llm_call", "timestamp": "2026-05-31T14:00:06.040130+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "2b724093-18bd-4fb2-a7e9-ac3a6ee5e7ba", "type": "http_request", "timestamp": "2026-05-31T14:00:06.123238+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "be432323-ad4b-4239-95d9-d6bb37fbd32d", "type": "http_response", "timestamp": "2026-05-31T14:00:06.433918+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"invalid x-api-key\"\n  },\n  \"request_id\": \"req_011CbamTDrNwJe2b86CXbSBc\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "e3279993-1b6e-4fa3-94d3-969e5158b45d", "type": "error", "timestamp": "2026-05-31T14:00:06.447660+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamTDrNwJe2b86CXbSBc'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamTDrNwJe2b86CXbSBc'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": true, "previous_run_id": "b9fcd4b2-64e5-40a5-acaf-0dc5861a56ae", "lines": [{"type": "unchanged", "text": "[user] fetch data"}, {"type": "unchanged", "text": "[user] Error: TimeoutError: request timed out after 30s"}, {"type": "unchanged", "text": "[user] Trace:"}, {"type": "unchanged", "text": "[user] - [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}"}, {"type": "unchanged", "text": "[user] - [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}}, "b9fcd4b2-64e5-40a5-acaf-0dc5861a56ae": {"items": [{"id": "cc58e046-1449-40c0-ac4a-551e93b3ee84", "type": "llm_call", "timestamp": "2026-05-31T14:00:01.784947+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "aa0d6ad7-96ae-4b10-8214-0a79254013ac", "type": "error", "timestamp": "2026-05-31T14:00:01.789709+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "440efc4f-d8c2-4cac-9d98-e812bf210758", "type": "llm_call", "timestamp": "2026-05-31T14:00:02.136597+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "84cfa696-63ab-4107-8753-9bea263af712", "type": "http_request", "timestamp": "2026-05-31T14:00:02.273924+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "10d12281-40b8-4721-854a-113a2f836b39", "type": "http_response", "timestamp": "2026-05-31T14:00:02.560925+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"invalid x-api-key\"\n  },\n  \"request_id\": \"req_011CbamSwcKJfGWgxgb1JrsP\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "a48761a2-33b2-4b81-8187-b8820b38974a", "type": "error", "timestamp": "2026-05-31T14:00:02.568912+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamSwcKJfGWgxgb1JrsP'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbamSwcKJfGWgxgb1JrsP'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": true, "previous_run_id": "935d2162-f05f-465a-b4fb-6f3ce2e5eb3d", "lines": [{"type": "unchanged", "text": "[user] fetch data"}, {"type": "unchanged", "text": "[user] Error: TimeoutError: request timed out after 30s"}, {"type": "unchanged", "text": "[user] Trace:"}, {"type": "unchanged", "text": "[user] - [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}"}, {"type": "unchanged", "text": "[user] - [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}}, "935d2162-f05f-465a-b4fb-6f3ce2e5eb3d": {"items": [{"id": "8e8c8656-e6ba-4160-a349-392bac2824e1", "type": "llm_call", "timestamp": "2026-05-31T11:48:04.320713+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "cde952b6-bfab-4814-9695-d5ede968bd24", "type": "error", "timestamp": "2026-05-31T11:48:04.328426+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "e2bed66c-c91e-49b0-a59f-365c9de47ae3", "type": "llm_call", "timestamp": "2026-05-31T11:48:04.649978+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "6c00cd12-e370-429c-ba60-52ae2f84c73f", "type": "http_request", "timestamp": "2026-05-31T11:48:04.805532+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "1358745a-b274-41d8-8f9f-e031dfcb38ed", "type": "http_response", "timestamp": "2026-05-31T11:48:05.056028+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"Invalid authentication credentials\"\n  },\n  \"request_id\": \"req_011CbabPJmmUZKAyiP9hRBy1\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "e1f45500-b5f4-4fee-a97d-f0b97f7fc56d", "type": "error", "timestamp": "2026-05-31T11:48:05.067484+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'Invalid authentication credentials'}, 'request_id': 'req_011CbabPJmmUZKAyiP9hRBy1'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'Invalid authentication credentials'}, 'request_id': 'req_011CbabPJmmUZKAyiP9hRBy1'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": false, "lines": []}}};
+    const anthropicApiKey = "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
+    const anthropicApiKeyConfigured =
+      anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
@@ -1162,6 +1224,59 @@
       return html;
     }
 
+    function buildPromptDiffSection(promptDiff) {
+      const diff = promptDiff || { has_previous: false, lines: [] };
+      let html = '<div class="prompt-diff-section">';
+      html += '<h3 class="prompt-diff-head">Prompt Diff</h3>';
+      if (!diff.has_previous) {
+        html += '<div class="prompt-diff-empty">No previous run to compare</div>';
+        html += "</div>";
+        return html;
+      }
+      if (diff.previous_run_id) {
+        html += '<div class="prompt-diff-meta">Compared against previous run <code>' +
+          escapeHtml(diff.previous_run_id) +
+          "</code></div>";
+      }
+      html += '<div class="prompt-diff-block">';
+      const lines = diff.lines || [];
+      if (!lines.length) {
+        html += '<div class="prompt-diff-line unchanged"><span class="prompt-diff-prefix"> </span>No prompt changes detected</div>';
+      } else {
+        lines.forEach((line) => {
+          const lineType = line.type || "unchanged";
+          if (lineType === "changed") {
+            if (line.previous) {
+              html += '<div class="prompt-diff-line removed">';
+              html += '<span class="prompt-diff-prefix">-</span>';
+              html += escapeHtml(line.previous);
+              html += "</div>";
+            }
+            if (line.text) {
+              html += '<div class="prompt-diff-line added">';
+              html += '<span class="prompt-diff-prefix">+</span>';
+              html += escapeHtml(line.text);
+              html += "</div>";
+            }
+            return;
+          }
+          let prefix = " ";
+          let display = line.text || "";
+          if (lineType === "added") {
+            prefix = "+";
+          } else if (lineType === "removed") {
+            prefix = "-";
+          }
+          html += '<div class="prompt-diff-line ' + escapeHtml(lineType) + '">';
+          html += '<span class="prompt-diff-prefix">' + prefix + "</span>";
+          html += escapeHtml(display);
+          html += "</div>";
+        });
+      }
+      html += "</div></div>";
+      return html;
+    }
+
     async function shareRun(runId, button) {
       const originalLabel = button.textContent;
       try {
@@ -1313,7 +1428,7 @@
         return;
       }
       showChatError("");
-      if (!anthropicApiKey) {
+      if (!anthropicApiKeyConfigured) {
         askBtn.disabled = true;
         if (hint) {
           hint.textContent = "Set ANTHROPIC_API_KEY and run agentautopsy ui to enable chat.";
@@ -1344,7 +1459,7 @@
       if (!question) {
         return;
       }
-      if (!anthropicApiKey) {
+      if (!anthropicApiKeyConfigured) {
         showChatError("Set ANTHROPIC_API_KEY and regenerate the report.");
         return;
       }
@@ -1394,7 +1509,7 @@
         showChatError(error.message || "Failed to reach Anthropic API");
       } finally {
         chatLoadingRunId = null;
-        askBtn.disabled = !anthropicApiKey;
+        askBtn.disabled = !anthropicApiKeyConfigured;
         renderChatMessages(runId);
       }
     }
@@ -1428,6 +1543,7 @@
       html += '</div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += buildDivergenceSection(data.divergences || []);
+      html += buildPromptDiffSection(data.prompt_diff || null);
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");

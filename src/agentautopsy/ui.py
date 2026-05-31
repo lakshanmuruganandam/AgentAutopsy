@@ -7,7 +7,7 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
-from agentautopsy.analyzer import detect_divergence
+from agentautopsy.analyzer import detect_divergence, diff_prompts
 from agentautopsy.db import get_db
 
 
@@ -234,6 +234,10 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             run_data["divergences"] = detect_divergence(run["id"])
         except Exception:
             run_data["divergences"] = []
+        try:
+            run_data["prompt_diff"] = diff_prompts(run["id"])
+        except Exception:
+            run_data["prompt_diff"] = {"has_previous": False, "lines": []}
         runs_data[run["id"]] = run_data
 
     return runs, runs_data
@@ -650,6 +654,66 @@ def _build_html(
       word-break: break-word;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.76rem;
+    }}
+    .prompt-diff-section {{
+      margin-bottom: 1.25rem;
+    }}
+    .prompt-diff-head {{
+      margin: 0 0 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+    }}
+    .prompt-diff-empty {{
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.86rem;
+    }}
+    .prompt-diff-block {{
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0c0c0f;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }}
+    .prompt-diff-line {{
+      padding: 0.28rem 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-left: 3px solid transparent;
+    }}
+    .prompt-diff-line.added {{
+      color: #86efac;
+      background: rgba(74, 222, 128, 0.1);
+      border-left-color: var(--green);
+    }}
+    .prompt-diff-line.removed {{
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.1);
+      border-left-color: var(--red);
+    }}
+    .prompt-diff-line.unchanged {{
+      color: var(--dim);
+      background: transparent;
+    }}
+    .prompt-diff-prefix {{
+      display: inline-block;
+      width: 1.1rem;
+      color: inherit;
+      opacity: 0.85;
+      user-select: none;
+    }}
+    .prompt-diff-meta {{
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      color: var(--muted);
     }}
     .share-btn {{
       padding: 0.72rem 1.15rem;
@@ -1413,6 +1477,59 @@ def _build_html(
       return html;
     }}
 
+    function buildPromptDiffSection(promptDiff) {{
+      const diff = promptDiff || {{ has_previous: false, lines: [] }};
+      let html = '<div class="prompt-diff-section">';
+      html += '<h3 class="prompt-diff-head">Prompt Diff</h3>';
+      if (!diff.has_previous) {{
+        html += '<div class="prompt-diff-empty">No previous run to compare</div>';
+        html += "</div>";
+        return html;
+      }}
+      if (diff.previous_run_id) {{
+        html += '<div class="prompt-diff-meta">Compared against previous run <code>' +
+          escapeHtml(diff.previous_run_id) +
+          "</code></div>";
+      }}
+      html += '<div class="prompt-diff-block">';
+      const lines = diff.lines || [];
+      if (!lines.length) {{
+        html += '<div class="prompt-diff-line unchanged"><span class="prompt-diff-prefix"> </span>No prompt changes detected</div>';
+      }} else {{
+        lines.forEach((line) => {{
+          const lineType = line.type || "unchanged";
+          if (lineType === "changed") {{
+            if (line.previous) {{
+              html += '<div class="prompt-diff-line removed">';
+              html += '<span class="prompt-diff-prefix">-</span>';
+              html += escapeHtml(line.previous);
+              html += "</div>";
+            }}
+            if (line.text) {{
+              html += '<div class="prompt-diff-line added">';
+              html += '<span class="prompt-diff-prefix">+</span>';
+              html += escapeHtml(line.text);
+              html += "</div>";
+            }}
+            return;
+          }}
+          let prefix = " ";
+          let display = line.text || "";
+          if (lineType === "added") {{
+            prefix = "+";
+          }} else if (lineType === "removed") {{
+            prefix = "-";
+          }}
+          html += '<div class="prompt-diff-line ' + escapeHtml(lineType) + '">';
+          html += '<span class="prompt-diff-prefix">' + prefix + "</span>";
+          html += escapeHtml(display);
+          html += "</div>";
+        }});
+      }}
+      html += "</div></div>";
+      return html;
+    }}
+
     async function shareRun(runId, button) {{
       const originalLabel = button.textContent;
       try {{
@@ -1679,6 +1796,7 @@ def _build_html(
       html += '</div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
       html += buildDivergenceSection(data.divergences || []);
+      html += buildPromptDiffSection(data.prompt_diff || null);
       html += '<ul class="timeline" id="timeline-' + escapeHtml(runId) + '">';
       events.forEach((ev, idx) => {{
         const cls = (ev.type || "unknown").replace(/[^a-z0-9_]/g, "_");
