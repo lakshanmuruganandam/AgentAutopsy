@@ -140,8 +140,10 @@ def main() -> None:
     if cmd == "ui":
         from agentautopsy.ui import start_ui
 
-        path = start_ui()
-        print(f"Opened {path}")
+        try:
+            start_ui()
+        except KeyboardInterrupt:
+            print("\nUI stopped.")
         return
 
     print(f"Unknown command: {cmd}", file=sys.stderr)

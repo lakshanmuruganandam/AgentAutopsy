@@ -876,12 +876,12 @@
     </main>
   </div>
   <script>
-    const runs = [{"id": "7c134c69-cb0c-428a-8318-4f43f80fa1e9", "start_time": "2026-05-31T22:22:59.569715+00:00", "status": "running", "has_error": true}];
-    const runsData = {"7c134c69-cb0c-428a-8318-4f43f80fa1e9": {"items": [{"id": "ab0af1ef-83d5-4c68-9363-1c689f34f61d", "type": "llm_call", "timestamp": "2026-05-31T22:23:01.220597+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "df875ef1-c905-4244-b23d-d7d9ab3e2fed", "type": "error", "timestamp": "2026-05-31T22:23:01.227750+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "5db6ddd0-d4fd-4d19-8b6a-a8506de2f9dc", "type": "llm_call", "timestamp": "2026-05-31T22:23:01.480992+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "d45d958f-5e8d-44b6-8c96-7355cb5c1a9a", "type": "http_request", "timestamp": "2026-05-31T22:23:01.580173+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "84d9f045-7b60-4589-8748-9e42b112df07", "type": "http_response", "timestamp": "2026-05-31T22:23:01.822383+00:00", "payload": {"status_code": 401}, "cassette_text": "{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"authentication_error\",\n    \"message\": \"invalid x-api-key\"\n  },\n  \"request_id\": \"req_011CbbRobFUPLjMe89bn3dpf\"\n}", "detail": "status: 401", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "d17ab823-0dc6-4b56-bb38-0568eac4dfd5", "type": "error", "timestamp": "2026-05-31T22:23:01.834730+00:00", "payload": {"error_type": "AuthenticationError", "message": "Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbbRobFUPLjMe89bn3dpf'}"}, "cassette_text": null, "detail": "AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CbbRobFUPLjMe89bn3dpf'}", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 0, "total_token_output": 0, "total_tokens": 0, "total_cost_usd": 0.0, "total_latency_ms": 0}, "divergences": [], "prompt_diff": {"has_previous": false, "lines": []}}};
+    const runs = [{"id": "5c33cbfa-af1a-4f1e-8460-bf046ad1573a", "start_time": "2026-05-31T22:56:43.570918+00:00", "status": "running", "has_error": true}];
+    const runsData = {"5c33cbfa-af1a-4f1e-8460-bf046ad1573a": {"items": [{"id": "c27b1112-21ab-4db2-803c-9cdd3edf1185", "type": "llm_call", "timestamp": "2026-05-31T22:56:45.152298+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c64e6f91-6881-43bc-b708-3a1495f7b917", "type": "error", "timestamp": "2026-05-31T22:56:45.159828+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "8af8b60f-0027-4cae-beeb-1c02e6ae28eb", "type": "llm_call", "timestamp": "2026-05-31T22:56:45.424746+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c5ee722e-a5ba-40bb-84b4-d3d7d1f87a49", "type": "http_request", "timestamp": "2026-05-31T22:56:45.493717+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "258673dd-a96c-42ec-98c7-4d9138d5ab59", "type": "http_response", "timestamp": "2026-05-31T22:56:48.408519+00:00", "payload": {"status_code": 200}, "cassette_text": "{\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"id\": \"msg_01WHVdaULUirLBqVtKEYPaJa\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"FAILURE NODE: llm_call to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout, likely due to model overload, network latency, or an overly broad/ambiguous prompt that caused extended processing.\\n\\nFIX: \\n1. Increase timeout threshold to 60-90s for gpt-4 calls\\n2. Add retry logic with exponential backoff (e.g., 3 retries)\\n3. Replace vague prompt \\\"fetch data\\\" with specific, concise instructions\\n4. Implement request queuing or use a faster model (gpt-3.5-turbo) as fallback\\n5. Add client-side timeout configuration: `timeout=60` in your LLM client initialization\\n\\nExample patch:\\n```python\\nresponse = client.chat.completions.create(\\n    model=\\\"gpt-4\\\",\\n    messages=[{\\\"role\\\": \\\"user\\\", \\\"content\\\": \\\"Retrieve and summarize Q3 sales data\\\"}],\\n    timeout=60,\\n    max_retries=3\\n)\\n```\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"usage\": {\n    \"input_tokens\": 160,\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"cache_creation\": {\n      \"ephemeral_5m_input_tokens\": 0,\n      \"ephemeral_1h_input_tokens\": 0\n    },\n    \"output_tokens\": 252,\n    \"service_tier\": \"standard\",\n    \"inference_geo\": \"not_available\"\n  }\n}", "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "7b9563f5-2810-4dce-ade8-607dd6cfe536", "type": "llm_response", "timestamp": "2026-05-31T22:56:48.445797+00:00", "payload": {}, "cassette_text": "{\n  \"id\": \"msg_01WHVdaULUirLBqVtKEYPaJa\",\n  \"container\": null,\n  \"content\": [\n    {\n      \"citations\": null,\n      \"text\": \"FAILURE NODE: llm_call to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout, likely due to model overload, network latency, or an overly broad/ambiguous prompt that caused extended processing.\\n\\nFIX: \\n1. Increase timeout threshold to 60-90s for gpt-4 calls\\n2. Add retry logic with exponential backoff (e.g., 3 retries)\\n3. Replace vague prompt \\\"fetch data\\\" with specific, concise instructions\\n4. Implement request queuing or use a faster model (gpt-3.5-turbo) as fallback\\n5. Add client-side timeout configuration: `timeout=60` in your LLM client initialization\\n\\nExample patch:\\n```python\\nresponse = client.chat.completions.create(\\n    model=\\\"gpt-4\\\",\\n    messages=[{\\\"role\\\": \\\"user\\\", \\\"content\\\": \\\"Retrieve and summarize Q3 sales data\\\"}],\\n    timeout=60,\\n    max_retries=3\\n)\\n```\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"role\": \"assistant\",\n  \"stop_details\": null,\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"inference_geo\": \"not_available\",\n    \"input_tokens\": 160,\n    \"output_tokens\": 252,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}", "detail": "cassette: 1403 bytes \u00b7 3013ms \u00b7 tokens 160/252 \u00b7 $0.000355", "latency_ms": 3013, "token_input": 160, "token_output": 252, "cost_usd": 0.000355}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 252, "total_tokens": 412, "total_cost_usd": 0.000355, "total_latency_ms": 3013}, "divergences": [], "prompt_diff": {"has_previous": false, "lines": []}}};
     const anthropicApiKey = "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
-    const fixApiBase = "";
+    const fixApiBase = "http://127.0.0.1:8765";
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
@@ -1344,11 +1344,6 @@
     }
 
     async function autoFixRun(runId, button) {
-      if (!fixApiBase) {
-        setAutofixStatus("Auto Fix requires agentautopsy ui server. Run: agentautopsy fix " + runId, "error");
-        return;
-      }
-      const createPr = window.confirm("Create a GitHub PR after applying the fix?");
       const originalLabel = button.textContent;
       button.disabled = true;
       button.textContent = "Applying fix...";
@@ -1357,20 +1352,15 @@
         const response = await fetch(fixApiBase + "/api/fix/" + encodeURIComponent(runId), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ create_pr: createPr }),
+          body: JSON.stringify({}),
         });
         const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || "Fix request failed");
+        if (!response.ok && !result.details) {
+          throw new Error(result.error || result.details || "Fix request failed");
         }
         let message = result.details || (result.success ? "Fix applied successfully." : "Fix failed.");
         if (result.test_output) {
           message += "\n\nTests:\n" + result.test_output;
-        }
-        if (result.pr && result.pr.pr_url) {
-          message += "\n\nPR: " + result.pr.pr_url;
-        } else if (result.pr_error) {
-          message += "\n\nPR error: " + result.pr_error;
         }
         setAutofixStatus(message, result.success ? "success" : "error");
         button.textContent = result.success ? "Fixed!" : "Fix failed";
@@ -1380,7 +1370,7 @@
       } finally {
         setTimeout(() => {
           button.textContent = originalLabel;
-          button.disabled = !fixApiBase;
+          button.disabled = false;
         }, 2200);
       }
     }
@@ -1630,7 +1620,7 @@
       html += '<div class="run-actions">';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\'' + runId + '\')">▶ Replay Run</button>';
       html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\'' + runId + '\', this)">Share Run</button>';
-      html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\'' + runId + '\', this)"' + (fixApiBase ? "" : " disabled") + '>Auto Fix</button>';
+      html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\'' + runId + '\', this)">Auto Fix</button>';
       html += '</div>';
       html += '<div class="autofix-status" id="autofix-status"></div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';

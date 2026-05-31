@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json
+import threading
 import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from agentautopsy.analyzer import detect_divergence, diff_prompts
 from agentautopsy.db import get_db
+
+UI_SERVER_PORT = 8765
+FIX_API_BASE = f"http://127.0.0.1:{UI_SERVER_PORT}"
 
 
 def _parse_payload(raw: Any) -> dict[str, Any]:
@@ -250,7 +256,7 @@ def _build_html(
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
-    fix_api_base_json = json.dumps("")
+    fix_api_base_json = json.dumps(FIX_API_BASE)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1598,11 +1604,6 @@ def _build_html(
     }}
 
     async function autoFixRun(runId, button) {{
-      if (!fixApiBase) {{
-        setAutofixStatus("Auto Fix requires agentautopsy ui server. Run: agentautopsy fix " + runId, "error");
-        return;
-      }}
-      const createPr = window.confirm("Create a GitHub PR after applying the fix?");
       const originalLabel = button.textContent;
       button.disabled = true;
       button.textContent = "Applying fix...";
@@ -1611,20 +1612,15 @@ def _build_html(
         const response = await fetch(fixApiBase + "/api/fix/" + encodeURIComponent(runId), {{
           method: "POST",
           headers: {{ "Content-Type": "application/json" }},
-          body: JSON.stringify({{ create_pr: createPr }}),
+          body: JSON.stringify({{}}),
         }});
         const result = await response.json();
-        if (!response.ok) {{
-          throw new Error(result.error || "Fix request failed");
+        if (!response.ok && !result.details) {{
+          throw new Error(result.error || result.details || "Fix request failed");
         }}
         let message = result.details || (result.success ? "Fix applied successfully." : "Fix failed.");
         if (result.test_output) {{
           message += "\\n\\nTests:\\n" + result.test_output;
-        }}
-        if (result.pr && result.pr.pr_url) {{
-          message += "\\n\\nPR: " + result.pr.pr_url;
-        }} else if (result.pr_error) {{
-          message += "\\n\\nPR error: " + result.pr_error;
         }}
         setAutofixStatus(message, result.success ? "success" : "error");
         button.textContent = result.success ? "Fixed!" : "Fix failed";
@@ -1634,7 +1630,7 @@ def _build_html(
       }} finally {{
         setTimeout(() => {{
           button.textContent = originalLabel;
-          button.disabled = !fixApiBase;
+          button.disabled = false;
         }}, 2200);
       }}
     }}
@@ -1884,7 +1880,7 @@ def _build_html(
       html += '<div class="run-actions">';
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
       html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\\'' + runId + '\\', this)">Share Run</button>';
-      html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\\'' + runId + '\\', this)"' + (fixApiBase ? "" : " disabled") + '>Auto Fix</button>';
+      html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\\'' + runId + '\\', this)">Auto Fix</button>';
       html += '</div>';
       html += '<div class="autofix-status" id="autofix-status"></div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
@@ -1963,12 +1959,73 @@ def _build_html(
 """
 
 
+class _UIRequestHandler(BaseHTTPRequestHandler):
+    html_content = ""
+
+    def _send_bytes(self, status: int, content_type: str, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+        self._send_bytes(status, "application/json", json.dumps(payload).encode("utf-8"))
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path in ("/", "/index.html"):
+            self._send_bytes(
+                200,
+                "text/html; charset=utf-8",
+                self.html_content.encode("utf-8"),
+            )
+            return
+        self._send_json(404, {"error": "Not found"})
+
+    def do_POST(self) -> None:
+        path = urlparse(self.path).path
+        if not path.startswith("/api/fix/"):
+            self._send_json(404, {"error": "Not found"})
+            return
+
+        run_id = path.removeprefix("/api/fix/").strip("/")
+        if not run_id:
+            self._send_json(400, {"error": "Missing run_id"})
+            return
+
+        from agentautopsy.autofix import apply_fix
+
+        result = apply_fix(run_id)
+        status = 200 if result.get("success") else 500
+        self._send_json(status, result)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+
+def _start_ui_server(html: str) -> ThreadingHTTPServer:
+    _UIRequestHandler.html_content = html
+    server = ThreadingHTTPServer(("127.0.0.1", UI_SERVER_PORT), _UIRequestHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
+
+
 def start_ui() -> Path:
-    """Build a self-contained HTML report and open it in the browser."""
+    """Build the HTML report, serve it locally, and open it in the browser."""
     db = get_db()
     runs, runs_data = _load_data(db)
     html = _build_html(runs, runs_data)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
-    webbrowser.open(output_path.resolve().as_uri())
+    server = _start_ui_server(html)
+    webbrowser.open(f"{FIX_API_BASE}/")
+    print(f"AgentAutopsy UI running at {FIX_API_BASE} (Ctrl+C to stop)")
+    print(f"Report saved to {output_path}")
+    try:
+        while True:
+            threading.Event().wait(3600)
+    except KeyboardInterrupt:
+        server.shutdown()
     return output_path

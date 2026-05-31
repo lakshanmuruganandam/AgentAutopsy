@@ -1,3 +1,27 @@
+import os
+from typing import Any, Optional
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+
+# Configure LLM clients with increased timeout and retry logic
+def get_openai_client(timeout: int = 60, max_retries: int = 3) -> ChatOpenAI:
+    """Initialize OpenAI client with timeout and retry configuration."""
+    return ChatOpenAI(
+        model="gpt-4",
+        timeout=timeout,
+        max_retries=max_retries,
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
+
+def get_anthropic_client(timeout: int = 60, max_retries: int = 3) -> ChatAnthropic:
+    """Initialize Anthropic client with timeout and retry configuration."""
+    return ChatAnthropic(
+        model="claude-haiku-4-5-20251001",
+        timeout=timeout,
+        max_retries=max_retries,
+        api_key=os.getenv("ANTHROPIC_API_KEY")
+    )
+
 """LangChain callback integration for AgentAutopsy."""
 
 from __future__ import annotations
