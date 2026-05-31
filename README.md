@@ -37,11 +37,11 @@ AgentAutopsy automatically intercepts every LLM call, detects failures, finds ro
 |---------|-------------|-----------|----------|
 | Works offline | ✅ | ❌ | ❌ |
 | Zero config | ✅ | ❌ | ❌ |
-| Replay failed runs | ✅ | ❌ | ❌ |
+| Replay failed runs | ✅ | partial | ❌ |
 | AI debug assistant | ✅ | ❌ | ❌ |
-| Prompt diffing | ✅ | ❌ | ❌ |
+| Prompt diffing | ✅ | partial | ❌ |
 | Divergence detection | ✅ | ❌ | ❌ |
-| Free and open source | ✅ | partial | ❌ |
+| Free and open source | ✅ | partial | ✅ |
 | No cloud required | ✅ | ❌ | ❌ |
 
 ## Setup
