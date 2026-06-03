@@ -28,6 +28,16 @@ def _ensure_events_observability_columns(db: Database) -> None:
             db["events"].add_column(name, col_type)
 
 
+def _ensure_runs_agent_columns(db: Database) -> None:
+    if not db["runs"].exists():
+        return
+    existing = {column.name for column in db["runs"].columns}
+    if "parent_run_id" not in existing:
+        db["runs"].add_column("parent_run_id", str)
+    if "agent_name" not in existing:
+        db["runs"].add_column("agent_name", str)
+
+
 def create_tables(db: Database) -> None:
     db["runs"].create(
         {
@@ -35,6 +45,8 @@ def create_tables(db: Database) -> None:
             "start_time": str,
             "status": str,
             "framework": str,
+            "parent_run_id": str,
+            "agent_name": str,
         },
         pk="id",
         if_not_exists=True,
@@ -56,20 +68,27 @@ def create_tables(db: Database) -> None:
         if_not_exists=True,
     )
     _ensure_events_observability_columns(db)
+    _ensure_runs_agent_columns(db)
 
 
-def insert_run(db: Database) -> str:
+def insert_run(
+    db: Database,
+    *,
+    agent_name: str | None = None,
+    parent_run_id: str | None = None,
+) -> str:
     run_id = str(uuid.uuid4())
     start_time = datetime.now(timezone.utc).isoformat()
-    db["runs"].insert(
-        {
-            "id": run_id,
-            "start_time": start_time,
-            "status": "running",
-            "framework": "unknown",
-        },
-        pk="id",
-    )
+    row: dict[str, object] = {
+        "id": run_id,
+        "start_time": start_time,
+        "status": "running",
+        "framework": "unknown",
+        "agent_name": agent_name or "agent",
+    }
+    if parent_run_id:
+        row["parent_run_id"] = parent_run_id
+    db["runs"].insert(row, pk="id")
     return run_id
 
 

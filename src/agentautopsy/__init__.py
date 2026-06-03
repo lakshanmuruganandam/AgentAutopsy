@@ -23,7 +23,10 @@ def get_callback_handler():
     return AgentAutopsyCallbackHandler(run_id, db)
 
 
-def watch():
+def watch(
+    agent_name: str | None = None,
+    parent_run_id: str | None = None,
+):
     global _watch_context
 
     db = get_db()
@@ -31,12 +34,19 @@ def watch():
     from agentautopsy.cache import setup_cache
 
     setup_cache(db)
-    run_id = insert_run(db)
+    run_id = insert_run(
+        db,
+        agent_name=agent_name,
+        parent_run_id=parent_run_id,
+    )
     _watch_context = (run_id, db)
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
-    print(f"[AgentAutopsy] watching — run {run_id}")
+    label = agent_name or "agent"
+    print(f"[AgentAutopsy] watching — {label} — run {run_id}")
+    if parent_run_id:
+        print(f"[AgentAutopsy] parent run {parent_run_id}")
 
     def on_exit():
         from agentautopsy.detector import detect_failure, take_snapshot

@@ -104,6 +104,127 @@
       letter-spacing: 0.08em;
       color: var(--dim);
     }
+    .sidebar-tabs {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0 0.65rem 0.75rem;
+    }
+    .sidebar-tab {
+      flex: 1;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .sidebar-tab.active {
+      color: var(--text);
+      border-color: rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.1);
+    }
+    .chain-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .chain-item:hover { background: var(--surface-hover); }
+    .chain-item.active {
+      background: rgba(34, 211, 238, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.25);
+    }
+    .chain-name {
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+    .chain-meta {
+      margin-top: 0.3rem;
+      font-size: 0.76rem;
+      color: var(--dim);
+    }
+    .agent-graph-view {
+      margin-bottom: 1.5rem;
+    }
+    .agent-graph-view h2 {
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .agent-graph-canvas {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      overflow-x: auto;
+    }
+    .graph-layer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.85rem;
+    }
+    .graph-arrow-row {
+      color: var(--cyan);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.35rem;
+      opacity: 0.85;
+    }
+    .graph-node {
+      min-width: 180px;
+      max-width: 220px;
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      text-align: left;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .graph-node:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow), 0 0 18px rgba(34, 211, 238, 0.15);
+    }
+    .graph-node.dot-success {
+      border-left: 4px solid var(--green);
+    }
+    .graph-node.dot-failed {
+      border-left: 4px solid var(--red);
+    }
+    .graph-node.dot-running {
+      border-left: 4px solid var(--yellow);
+    }
+    .graph-node-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .graph-node-meta {
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .graph-hint {
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--dim);
+    }
     #run-list {
       display: flex;
       flex-direction: column;
@@ -868,16 +989,22 @@
   </header>
   <div class="layout">
     <aside class="sidebar">
-      <div class="sidebar-head">Runs</div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" id="tab-runs" type="button">Runs</button>
+        <button class="sidebar-tab" id="tab-graph" type="button">Agent Graph</button>
+      </div>
+      <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
+      <div id="chain-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
     </main>
   </div>
   <script>
-    const runs = [{"id": "5c33cbfa-af1a-4f1e-8460-bf046ad1573a", "start_time": "2026-05-31T22:56:43.570918+00:00", "status": "running", "has_error": true}];
-    const runsData = {"5c33cbfa-af1a-4f1e-8460-bf046ad1573a": {"items": [{"id": "c27b1112-21ab-4db2-803c-9cdd3edf1185", "type": "llm_call", "timestamp": "2026-05-31T22:56:45.152298+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c64e6f91-6881-43bc-b708-3a1495f7b917", "type": "error", "timestamp": "2026-05-31T22:56:45.159828+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "8af8b60f-0027-4cae-beeb-1c02e6ae28eb", "type": "llm_call", "timestamp": "2026-05-31T22:56:45.424746+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c5ee722e-a5ba-40bb-84b4-d3d7d1f87a49", "type": "http_request", "timestamp": "2026-05-31T22:56:45.493717+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "258673dd-a96c-42ec-98c7-4d9138d5ab59", "type": "http_response", "timestamp": "2026-05-31T22:56:48.408519+00:00", "payload": {"status_code": 200}, "cassette_text": "{\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"id\": \"msg_01WHVdaULUirLBqVtKEYPaJa\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"FAILURE NODE: llm_call to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout, likely due to model overload, network latency, or an overly broad/ambiguous prompt that caused extended processing.\\n\\nFIX: \\n1. Increase timeout threshold to 60-90s for gpt-4 calls\\n2. Add retry logic with exponential backoff (e.g., 3 retries)\\n3. Replace vague prompt \\\"fetch data\\\" with specific, concise instructions\\n4. Implement request queuing or use a faster model (gpt-3.5-turbo) as fallback\\n5. Add client-side timeout configuration: `timeout=60` in your LLM client initialization\\n\\nExample patch:\\n```python\\nresponse = client.chat.completions.create(\\n    model=\\\"gpt-4\\\",\\n    messages=[{\\\"role\\\": \\\"user\\\", \\\"content\\\": \\\"Retrieve and summarize Q3 sales data\\\"}],\\n    timeout=60,\\n    max_retries=3\\n)\\n```\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"usage\": {\n    \"input_tokens\": 160,\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"cache_creation\": {\n      \"ephemeral_5m_input_tokens\": 0,\n      \"ephemeral_1h_input_tokens\": 0\n    },\n    \"output_tokens\": 252,\n    \"service_tier\": \"standard\",\n    \"inference_geo\": \"not_available\"\n  }\n}", "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "7b9563f5-2810-4dce-ade8-607dd6cfe536", "type": "llm_response", "timestamp": "2026-05-31T22:56:48.445797+00:00", "payload": {}, "cassette_text": "{\n  \"id\": \"msg_01WHVdaULUirLBqVtKEYPaJa\",\n  \"container\": null,\n  \"content\": [\n    {\n      \"citations\": null,\n      \"text\": \"FAILURE NODE: llm_call to gpt-4 with message \\\"fetch data\\\"\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout, likely due to model overload, network latency, or an overly broad/ambiguous prompt that caused extended processing.\\n\\nFIX: \\n1. Increase timeout threshold to 60-90s for gpt-4 calls\\n2. Add retry logic with exponential backoff (e.g., 3 retries)\\n3. Replace vague prompt \\\"fetch data\\\" with specific, concise instructions\\n4. Implement request queuing or use a faster model (gpt-3.5-turbo) as fallback\\n5. Add client-side timeout configuration: `timeout=60` in your LLM client initialization\\n\\nExample patch:\\n```python\\nresponse = client.chat.completions.create(\\n    model=\\\"gpt-4\\\",\\n    messages=[{\\\"role\\\": \\\"user\\\", \\\"content\\\": \\\"Retrieve and summarize Q3 sales data\\\"}],\\n    timeout=60,\\n    max_retries=3\\n)\\n```\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"role\": \"assistant\",\n  \"stop_details\": null,\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"inference_geo\": \"not_available\",\n    \"input_tokens\": 160,\n    \"output_tokens\": 252,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}", "detail": "cassette: 1403 bytes \u00b7 3013ms \u00b7 tokens 160/252 \u00b7 $0.000355", "latency_ms": 3013, "token_input": 160, "token_output": 252, "cost_usd": 0.000355}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 252, "total_tokens": 412, "total_cost_usd": 0.000355, "total_latency_ms": 3013}, "divergences": [], "prompt_diff": {"has_previous": false, "lines": []}}};
+    const runs = [{"id": "cad5f89b-1140-4f12-8b86-d6a4669172a0", "start_time": "2026-06-03T10:51:36.145832+00:00", "status": "running", "agent_name": "agent", "parent_run_id": null, "has_error": true}];
+    const runsData = {"cad5f89b-1140-4f12-8b86-d6a4669172a0": {"items": [{"id": "5b1edded-0289-4c4b-b3a0-293e811e50c7", "type": "llm_call", "timestamp": "2026-06-03T10:51:37.809965+00:00", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]}, "cassette_text": null, "detail": "model: gpt-4", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "88375b44-c41d-494e-b207-16e44efee278", "type": "error", "timestamp": "2026-06-03T10:51:37.815719+00:00", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_text": null, "detail": "TimeoutError: request timed out after 30s", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "d4281406-4b48-4296-b0eb-691c75276bdd", "type": "llm_call", "timestamp": "2026-06-03T10:51:38.062967+00:00", "payload": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Error: TimeoutError: request timed out after 30s\nTrace:\n- [llm_call] {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'fetch data'}]}\n- [error] {'error_type': 'TimeoutError', 'message': 'request timed out after 30s'}"}]}, "cassette_text": null, "detail": "model: claude-haiku-4-5-20251001", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "8b8c48f0-d6f2-4e42-87a7-e4ee294743f1", "type": "http_request", "timestamp": "2026-06-03T10:51:38.175910+00:00", "payload": {"method": "POST", "url": "https://api.anthropic.com/v1/messages"}, "cassette_text": null, "detail": "POST https://api.anthropic.com/v1/messages", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "c80c0ab7-bca8-4051-895a-89cef2841850", "type": "http_response", "timestamp": "2026-06-03T10:51:41.209363+00:00", "payload": {"status_code": 200}, "cassette_text": "{\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"id\": \"msg_013sMuqd3cpiM2h5oJRNGH4X\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with message 'fetch data'\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to high API latency, network congestion, or an unresponsive service endpoint.\\n\\nFIX: Implement exponential backoff retry logic with a longer timeout window (60-90s), add request queuing to avoid thundering herd, or switch to streaming mode to start receiving tokens earlier. Also verify gpt-4 API endpoint health and consider falling back to gpt-3.5-turbo if latency is consistently high.\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"usage\": {\n    \"input_tokens\": 160,\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"cache_creation\": {\n      \"ephemeral_5m_input_tokens\": 0,\n      \"ephemeral_1h_input_tokens\": 0\n    },\n    \"output_tokens\": 143,\n    \"service_tier\": \"standard\",\n    \"inference_geo\": \"not_available\"\n  }\n}", "detail": "status: 200", "latency_ms": null, "token_input": null, "token_output": null, "cost_usd": null}, {"id": "ca030107-e62e-4fb1-822e-9fdb53a8889a", "type": "llm_response", "timestamp": "2026-06-03T10:51:41.243088+00:00", "payload": {}, "cassette_text": "{\n  \"id\": \"msg_013sMuqd3cpiM2h5oJRNGH4X\",\n  \"container\": null,\n  \"content\": [\n    {\n      \"citations\": null,\n      \"text\": \"FAILURE NODE: [llm_call] to gpt-4 with message 'fetch data'\\n\\nROOT CAUSE: The LLM request exceeded the 30-second timeout threshold, likely due to high API latency, network congestion, or an unresponsive service endpoint.\\n\\nFIX: Implement exponential backoff retry logic with a longer timeout window (60-90s), add request queuing to avoid thundering herd, or switch to streaming mode to start receiving tokens earlier. Also verify gpt-4 API endpoint health and consider falling back to gpt-3.5-turbo if latency is consistently high.\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"role\": \"assistant\",\n  \"stop_details\": null,\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"inference_geo\": \"not_available\",\n    \"input_tokens\": 160,\n    \"output_tokens\": 143,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}", "detail": "cassette: 1091 bytes \u00b7 3174ms \u00b7 tokens 160/143 \u00b7 $0.000219", "latency_ms": 3174, "token_input": 160, "token_output": 143, "cost_usd": 0.00021875}], "root_cause": "TimeoutError \u2014 request timed out after 30s", "summary": {"total_token_input": 160, "total_token_output": 143, "total_tokens": 303, "total_cost_usd": 0.000219, "total_latency_ms": 3174}, "divergences": [], "prompt_diff": {"has_previous": false, "lines": []}}};
+    const agentChains = [{"root_id": "cad5f89b-1140-4f12-8b86-d6a4669172a0", "root_agent": "agent", "nodes": [{"id": "cad5f89b-1140-4f12-8b86-d6a4669172a0", "agent_name": "agent", "status": "running", "has_error": true, "total_tokens": 303, "depth": 0}], "edges": []}];
     const anthropicApiKey = "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -885,8 +1012,14 @@
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
+    const chainList = document.getElementById("chain-list");
     const detail = document.getElementById("detail");
+    const tabRuns = document.getElementById("tab-runs");
+    const tabGraph = document.getElementById("tab-graph");
+    const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
+    let activeView = "runs";
+    let selectedChainIndex = 0;
     const chatHistory = {};
     let chatLoadingRunId = null;
 
@@ -1087,6 +1220,107 @@
         return "dot-failed";
       }
       return "dot-success";
+    }
+
+    function graphNodeClass(node) {
+      if ((node.status || "").toLowerCase() === "running") {
+        return "dot-running";
+      }
+      if (node.has_error) {
+        return "dot-failed";
+      }
+      return "dot-success";
+    }
+
+    function findChainIndexForRun(runId) {
+      for (let i = 0; i < agentChains.length; i += 1) {
+        if (agentChains[i].nodes.some((node) => node.id === runId)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    function setSidebarView(view) {
+      activeView = view;
+      tabRuns.classList.toggle("active", view === "runs");
+      tabGraph.classList.toggle("active", view === "graph");
+      runList.style.display = view === "runs" ? "flex" : "none";
+      chainList.style.display = view === "graph" ? "block" : "none";
+      sidebarHead.textContent = view === "runs" ? "Runs" : "Agent Chains";
+    }
+
+    function selectAgentNode(runId) {
+      setSidebarView("runs");
+      document.querySelectorAll(".run-item").forEach((el) => {
+        el.classList.toggle("active", el.dataset.runId === runId);
+      });
+      renderRun(runId);
+    }
+
+    function renderAgentGraph(chainIndex) {
+      selectedChainIndex = chainIndex;
+      const chain = agentChains[chainIndex];
+      if (!chain) {
+        detail.innerHTML = '<div class="empty">No agent chain selected.</div>';
+        return;
+      }
+      const layers = {};
+      chain.nodes.forEach((node) => {
+        const depth = node.depth || 0;
+        if (!layers[depth]) {
+          layers[depth] = [];
+        }
+        layers[depth].push(node);
+      });
+      const depths = Object.keys(layers).map(Number).sort((a, b) => a - b);
+      let html = '<div class="agent-graph-view"><h2>Agent Graph</h2>';
+      html += '<div class="agent-graph-canvas">';
+      depths.forEach((depth, index) => {
+        if (index > 0) {
+          html += '<div class="graph-arrow-row">↓</div>';
+        }
+        html += '<div class="graph-layer">';
+        layers[depth].forEach((node) => {
+          const safeId = node.id.replace(/'/g, "\\'");
+          html += '<button class="graph-node ' + graphNodeClass(node) + '" type="button" onclick="selectAgentNode(\'' + safeId + '\')">';
+          html += '<div class="graph-node-name">' + escapeHtml(node.agent_name) + "</div>";
+          html += '<div class="graph-node-meta">Status: ' + escapeHtml(node.status || "") + "</div>";
+          html += '<div class="graph-node-meta">Tokens: ' + escapeHtml(node.total_tokens || 0) + "</div>";
+          html += '<div class="graph-node-meta"><code>' + escapeHtml(node.id.slice(0, 8)) + "...</code></div>";
+          html += "</button>";
+        });
+        html += "</div>";
+      });
+      html += "</div>";
+      html += '<div class="graph-hint">Click a node to open that agent\'s full timeline.</div></div>';
+      detail.innerHTML = html;
+      document.querySelectorAll(".chain-item").forEach((el, idx) => {
+        el.classList.toggle("active", idx === chainIndex);
+      });
+    }
+
+    function renderChainList() {
+      if (!agentChains.length) {
+        chainList.innerHTML = '<div class="empty" style="padding:1rem">No multi-agent chains yet.</div>';
+        detail.innerHTML = '<div class="empty">Start agents with parent_run_id to build a chain.</div>';
+        return;
+      }
+      chainList.innerHTML = "";
+      agentChains.forEach((chain, index) => {
+        const btn = document.createElement("button");
+        btn.className = "chain-item" + (index === selectedChainIndex ? " active" : "");
+        btn.type = "button";
+        const labels = chain.nodes.map((node) => node.agent_name).join(" → ");
+        btn.innerHTML =
+          '<div class="chain-name">' + escapeHtml(chain.root_agent) + "</div>" +
+          '<div class="chain-meta">' + escapeHtml(labels) + "</div>";
+        btn.addEventListener("click", () => {
+          renderAgentGraph(index);
+        });
+        chainList.appendChild(btn);
+      });
+      renderAgentGraph(selectedChainIndex);
     }
 
     function toggleExpand(id) {
@@ -1676,22 +1910,43 @@
       runList.innerHTML = '<div class="empty">No runs found.</div>';
       detail.innerHTML = '<div class="empty">No data in agentautopsy.db yet.</div>';
     } else {
+      tabRuns.addEventListener("click", () => {
+        setSidebarView("runs");
+        const active = document.querySelector(".run-item.active");
+        if (active && active.dataset.runId) {
+          renderRun(active.dataset.runId);
+        } else if (runs[0]) {
+          renderRun(runs[0].id);
+        }
+      });
+      tabGraph.addEventListener("click", () => {
+        setSidebarView("graph");
+        renderChainList();
+      });
       runs.forEach((run, index) => {
         const btn = document.createElement("button");
         btn.className = "run-item" + (index === 0 ? " active" : "");
         btn.type = "button";
         btn.innerHTML =
           '<span class="status-dot ' + statusDotClass(run) + '"></span>' +
-          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.id) + '</div>' +
-          '<div class="run-meta">' + escapeHtml(run.status || "") + ' · ' + escapeHtml(run.start_time || "") + '</div></span>';
+          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.agent_name || "agent") + '</div>' +
+          '<div class="run-meta">' + escapeHtml(run.id.slice(0, 12)) + "... · " + escapeHtml(run.status || "") + "</div></span>";
+        btn.dataset.runId = run.id;
         btn.addEventListener("click", () => {
           document.querySelectorAll(".run-item").forEach(el => el.classList.remove("active"));
           btn.classList.add("active");
+          setSidebarView("runs");
           renderRun(run.id);
         });
         runList.appendChild(btn);
       });
       renderRun(runs[0].id);
+      if (agentChains.length) {
+        selectedChainIndex = findChainIndexForRun(runs[0].id);
+        if (selectedChainIndex < 0) {
+          selectedChainIndex = 0;
+        }
+      }
     }
   </script>
 </body>

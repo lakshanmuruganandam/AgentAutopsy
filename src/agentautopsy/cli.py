@@ -14,6 +14,7 @@ def _usage() -> None:
 
 Commands:
   runs              List all runs (id, start_time, status)
+  agents            List multi-agent run chains
   replay <run_id>   Print the event report for a run
   share <run_id>    Export a run trace to a shareable JSON file
   fix <run_id>      Apply an automated fix for a failed run
@@ -22,6 +23,7 @@ Commands:
 
 Examples:
   agentautopsy runs
+  agentautopsy agents
   agentautopsy replay abc-123-def
   agentautopsy share abc-123-def
   agentautopsy fix abc-123-def
@@ -50,7 +52,32 @@ def main() -> None:
             print("No runs found.")
             return
         for row in rows:
-            print(f"{row['id']}\t{row['start_time']}\t{row['status']}")
+            agent = row.get("agent_name") or "agent"
+            parent = row.get("parent_run_id") or ""
+            parent_suffix = f"\tparent={parent[:8]}..." if parent else ""
+            print(f"{row['id']}\t{agent}\t{row['start_time']}\t{row['status']}{parent_suffix}")
+        return
+
+    if cmd == "agents":
+        from agentautopsy.ui import _load_data, build_agent_chains
+
+        if not db["runs"].exists():
+            print("No runs table yet.")
+            return
+        runs, runs_data = _load_data(db)
+        chains = build_agent_chains(runs, runs_data)
+        if not chains:
+            print("No agent runs found.")
+            return
+        for index, chain in enumerate(chains, start=1):
+            labels = " → ".join(
+                f"{node['agent_name']} [{node['status']}]" for node in chain["nodes"]
+            )
+            tokens = sum(node.get("total_tokens", 0) for node in chain["nodes"])
+            print(f"Chain {index} (root: {chain['root_id'][:8]}...)")
+            print(f"  {labels}")
+            print(f"  total_tokens: {tokens}")
+            print()
         return
 
     if cmd == "replay":

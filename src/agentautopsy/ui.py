@@ -113,6 +113,74 @@ def _root_cause(events: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def build_agent_chains(
+    runs: list[dict[str, Any]], runs_data: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Build multi-agent run chains for graph and CLI display."""
+    children_by_parent: dict[str, list[dict[str, Any]]] = {}
+    for run in runs:
+        parent_id = run.get("parent_run_id")
+        if parent_id:
+            children_by_parent.setdefault(parent_id, []).append(run)
+
+    def walk_chain(run: dict[str, Any], depth: int) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+        summary = runs_data.get(run["id"], {}).get("summary", {})
+        nodes = [
+            {
+                "id": run["id"],
+                "agent_name": run.get("agent_name") or "agent",
+                "status": run.get("status", ""),
+                "has_error": bool(run.get("has_error")),
+                "total_tokens": summary.get("total_tokens", 0),
+                "depth": depth,
+            }
+        ]
+        edges: list[dict[str, str]] = []
+        for child in children_by_parent.get(run["id"], []):
+            edges.append({"from": run["id"], "to": child["id"]})
+            child_nodes, child_edges = walk_chain(child, depth + 1)
+            nodes.extend(child_nodes)
+            edges.extend(child_edges)
+        return nodes, edges
+
+    chains: list[dict[str, Any]] = []
+    roots = [run for run in runs if not run.get("parent_run_id")]
+    for root in roots:
+        nodes, edges = walk_chain(root, 0)
+        chains.append(
+            {
+                "root_id": root["id"],
+                "root_agent": root.get("agent_name") or "agent",
+                "nodes": nodes,
+                "edges": edges,
+            }
+        )
+
+    linked_ids = {node["id"] for chain in chains for node in chain["nodes"]}
+    for run in runs:
+        if run["id"] in linked_ids:
+            continue
+        summary = runs_data.get(run["id"], {}).get("summary", {})
+        chains.append(
+            {
+                "root_id": run["id"],
+                "root_agent": run.get("agent_name") or "agent",
+                "nodes": [
+                    {
+                        "id": run["id"],
+                        "agent_name": run.get("agent_name") or "agent",
+                        "status": run.get("status", ""),
+                        "has_error": bool(run.get("has_error")),
+                        "total_tokens": summary.get("total_tokens", 0),
+                        "depth": 0,
+                    }
+                ],
+                "edges": [],
+            }
+        )
+    return chains
+
+
 def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     if not db["runs"].exists():
         return [], {}
@@ -122,6 +190,8 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             "id": row["id"],
             "start_time": row.get("start_time", ""),
             "status": row.get("status", ""),
+            "agent_name": row.get("agent_name") or "agent",
+            "parent_run_id": row.get("parent_run_id"),
         }
         for row in db["runs"].rows_where(order_by="start_time desc")
     ]
@@ -252,9 +322,11 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
 def _build_html(
     runs: list[dict[str, Any]],
     runs_data: dict[str, dict[str, Any]],
+    agent_chains: list[dict[str, Any]],
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
+    agent_chains_json = json.dumps(agent_chains)
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
     fix_api_base_json = json.dumps(FIX_API_BASE)
 
@@ -362,6 +434,127 @@ def _build_html(
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      color: var(--dim);
+    }}
+    .sidebar-tabs {{
+      display: flex;
+      gap: 0.35rem;
+      padding: 0 0.65rem 0.75rem;
+    }}
+    .sidebar-tab {{
+      flex: 1;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }}
+    .sidebar-tab.active {{
+      color: var(--text);
+      border-color: rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.1);
+    }}
+    .chain-item {{
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }}
+    .chain-item:hover {{ background: var(--surface-hover); }}
+    .chain-item.active {{
+      background: rgba(34, 211, 238, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.25);
+    }}
+    .chain-name {{
+      font-size: 0.86rem;
+      font-weight: 600;
+    }}
+    .chain-meta {{
+      margin-top: 0.3rem;
+      font-size: 0.76rem;
+      color: var(--dim);
+    }}
+    .agent-graph-view {{
+      margin-bottom: 1.5rem;
+    }}
+    .agent-graph-view h2 {{
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }}
+    .agent-graph-canvas {{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      overflow-x: auto;
+    }}
+    .graph-layer {{
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.85rem;
+    }}
+    .graph-arrow-row {{
+      color: var(--cyan);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.35rem;
+      opacity: 0.85;
+    }}
+    .graph-node {{
+      min-width: 180px;
+      max-width: 220px;
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      text-align: left;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .graph-node:hover {{
+      transform: translateY(-2px);
+      box-shadow: var(--shadow), 0 0 18px rgba(34, 211, 238, 0.15);
+    }}
+    .graph-node.dot-success {{
+      border-left: 4px solid var(--green);
+    }}
+    .graph-node.dot-failed {{
+      border-left: 4px solid var(--red);
+    }}
+    .graph-node.dot-running {{
+      border-left: 4px solid var(--yellow);
+    }}
+    .graph-node-name {{
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }}
+    .graph-node-meta {{
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }}
+    .graph-hint {{
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
       color: var(--dim);
     }}
     #run-list {{
@@ -1128,8 +1321,13 @@ def _build_html(
   </header>
   <div class="layout">
     <aside class="sidebar">
-      <div class="sidebar-head">Runs</div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" id="tab-runs" type="button">Runs</button>
+        <button class="sidebar-tab" id="tab-graph" type="button">Agent Graph</button>
+      </div>
+      <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
+      <div id="chain-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
@@ -1138,6 +1336,7 @@ def _build_html(
   <script>
     const runs = {runs_json};
     const runsData = {data_json};
+    const agentChains = {agent_chains_json};
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -1145,8 +1344,14 @@ def _build_html(
     const CHAT_SYSTEM_PROMPT =
       "You are an AI debugging assistant. You have access to the full trace of an AI agent run. Answer questions about why it failed, what happened at each step, and how to fix it.";
     const runList = document.getElementById("run-list");
+    const chainList = document.getElementById("chain-list");
     const detail = document.getElementById("detail");
+    const tabRuns = document.getElementById("tab-runs");
+    const tabGraph = document.getElementById("tab-graph");
+    const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
+    let activeView = "runs";
+    let selectedChainIndex = 0;
     const chatHistory = {{}};
     let chatLoadingRunId = null;
 
@@ -1347,6 +1552,107 @@ def _build_html(
         return "dot-failed";
       }}
       return "dot-success";
+    }}
+
+    function graphNodeClass(node) {{
+      if ((node.status || "").toLowerCase() === "running") {{
+        return "dot-running";
+      }}
+      if (node.has_error) {{
+        return "dot-failed";
+      }}
+      return "dot-success";
+    }}
+
+    function findChainIndexForRun(runId) {{
+      for (let i = 0; i < agentChains.length; i += 1) {{
+        if (agentChains[i].nodes.some((node) => node.id === runId)) {{
+          return i;
+        }}
+      }}
+      return -1;
+    }}
+
+    function setSidebarView(view) {{
+      activeView = view;
+      tabRuns.classList.toggle("active", view === "runs");
+      tabGraph.classList.toggle("active", view === "graph");
+      runList.style.display = view === "runs" ? "flex" : "none";
+      chainList.style.display = view === "graph" ? "block" : "none";
+      sidebarHead.textContent = view === "runs" ? "Runs" : "Agent Chains";
+    }}
+
+    function selectAgentNode(runId) {{
+      setSidebarView("runs");
+      document.querySelectorAll(".run-item").forEach((el) => {{
+        el.classList.toggle("active", el.dataset.runId === runId);
+      }});
+      renderRun(runId);
+    }}
+
+    function renderAgentGraph(chainIndex) {{
+      selectedChainIndex = chainIndex;
+      const chain = agentChains[chainIndex];
+      if (!chain) {{
+        detail.innerHTML = '<div class="empty">No agent chain selected.</div>';
+        return;
+      }}
+      const layers = {{}};
+      chain.nodes.forEach((node) => {{
+        const depth = node.depth || 0;
+        if (!layers[depth]) {{
+          layers[depth] = [];
+        }}
+        layers[depth].push(node);
+      }});
+      const depths = Object.keys(layers).map(Number).sort((a, b) => a - b);
+      let html = '<div class="agent-graph-view"><h2>Agent Graph</h2>';
+      html += '<div class="agent-graph-canvas">';
+      depths.forEach((depth, index) => {{
+        if (index > 0) {{
+          html += '<div class="graph-arrow-row">↓</div>';
+        }}
+        html += '<div class="graph-layer">';
+        layers[depth].forEach((node) => {{
+          const safeId = node.id.replace(/'/g, "\\\\'");
+          html += '<button class="graph-node ' + graphNodeClass(node) + '" type="button" onclick="selectAgentNode(\\'' + safeId + '\\')">';
+          html += '<div class="graph-node-name">' + escapeHtml(node.agent_name) + "</div>";
+          html += '<div class="graph-node-meta">Status: ' + escapeHtml(node.status || "") + "</div>";
+          html += '<div class="graph-node-meta">Tokens: ' + escapeHtml(node.total_tokens || 0) + "</div>";
+          html += '<div class="graph-node-meta"><code>' + escapeHtml(node.id.slice(0, 8)) + "...</code></div>";
+          html += "</button>";
+        }});
+        html += "</div>";
+      }});
+      html += "</div>";
+      html += '<div class="graph-hint">Click a node to open that agent\\'s full timeline.</div></div>';
+      detail.innerHTML = html;
+      document.querySelectorAll(".chain-item").forEach((el, idx) => {{
+        el.classList.toggle("active", idx === chainIndex);
+      }});
+    }}
+
+    function renderChainList() {{
+      if (!agentChains.length) {{
+        chainList.innerHTML = '<div class="empty" style="padding:1rem">No multi-agent chains yet.</div>';
+        detail.innerHTML = '<div class="empty">Start agents with parent_run_id to build a chain.</div>';
+        return;
+      }}
+      chainList.innerHTML = "";
+      agentChains.forEach((chain, index) => {{
+        const btn = document.createElement("button");
+        btn.className = "chain-item" + (index === selectedChainIndex ? " active" : "");
+        btn.type = "button";
+        const labels = chain.nodes.map((node) => node.agent_name).join(" → ");
+        btn.innerHTML =
+          '<div class="chain-name">' + escapeHtml(chain.root_agent) + "</div>" +
+          '<div class="chain-meta">' + escapeHtml(labels) + "</div>";
+        btn.addEventListener("click", () => {{
+          renderAgentGraph(index);
+        }});
+        chainList.appendChild(btn);
+      }});
+      renderAgentGraph(selectedChainIndex);
     }}
 
     function toggleExpand(id) {{
@@ -1936,22 +2242,43 @@ def _build_html(
       runList.innerHTML = '<div class="empty">No runs found.</div>';
       detail.innerHTML = '<div class="empty">No data in agentautopsy.db yet.</div>';
     }} else {{
+      tabRuns.addEventListener("click", () => {{
+        setSidebarView("runs");
+        const active = document.querySelector(".run-item.active");
+        if (active && active.dataset.runId) {{
+          renderRun(active.dataset.runId);
+        }} else if (runs[0]) {{
+          renderRun(runs[0].id);
+        }}
+      }});
+      tabGraph.addEventListener("click", () => {{
+        setSidebarView("graph");
+        renderChainList();
+      }});
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
         btn.className = "run-item" + (index === 0 ? " active" : "");
         btn.type = "button";
         btn.innerHTML =
           '<span class="status-dot ' + statusDotClass(run) + '"></span>' +
-          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.id) + '</div>' +
-          '<div class="run-meta">' + escapeHtml(run.status || "") + ' · ' + escapeHtml(run.start_time || "") + '</div></span>';
+          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.agent_name || "agent") + '</div>' +
+          '<div class="run-meta">' + escapeHtml(run.id.slice(0, 12)) + "... · " + escapeHtml(run.status || "") + "</div></span>";
+        btn.dataset.runId = run.id;
         btn.addEventListener("click", () => {{
           document.querySelectorAll(".run-item").forEach(el => el.classList.remove("active"));
           btn.classList.add("active");
+          setSidebarView("runs");
           renderRun(run.id);
         }});
         runList.appendChild(btn);
       }});
       renderRun(runs[0].id);
+      if (agentChains.length) {{
+        selectedChainIndex = findChainIndexForRun(runs[0].id);
+        if (selectedChainIndex < 0) {{
+          selectedChainIndex = 0;
+        }}
+      }}
     }}
   </script>
 </body>
@@ -2016,7 +2343,8 @@ def start_ui() -> Path:
     """Build the HTML report, serve it locally, and open it in the browser."""
     db = get_db()
     runs, runs_data = _load_data(db)
-    html = _build_html(runs, runs_data)
+    agent_chains = build_agent_chains(runs, runs_data)
+    html = _build_html(runs, runs_data, agent_chains)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)

@@ -8,9 +8,26 @@ from statistics import mean
 from typing import Any
 
 import anthropic
+from openai import OpenAI
 
 from agentautopsy.alerts import send_slack_alert
 from agentautopsy.db import get_db
+
+_openai_client: OpenAI | None = None
+
+
+def _get_openai_client() -> OpenAI | None:
+    """Return an OpenAI client, initializing only when needed."""
+    global _openai_client
+    if _openai_client is not None:
+        return _openai_client
+    if not os.environ.get("OPENAI_API_KEY"):
+        return None
+    try:
+        _openai_client = OpenAI(timeout=60, max_retries=3)
+    except Exception:
+        return None
+    return _openai_client
 
 
 def _parse_analysis(text: str) -> tuple[str, str]:
