@@ -22,6 +22,51 @@ agentautopsy runs        # see all agent runs
 agentautopsy replay <id> # replay any failure
 agentautopsy stats       # fix cache stats
 
+## GitHub Actions
+
+Add AgentAutopsy to your test workflow so failed Python tests get an automatic root-cause analysis and a suggested fix posted on the pull request.
+
+Create or update `.github/workflows/test.yml`:
+
+```yaml
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: AgentAutopsy
+        uses: Abhisekhpatel/AgentAutopsy@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          test_command: pytest
+```
+
+**Inputs**
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `anthropic_api_key` | yes | — | Anthropic API key for analysis |
+| `github_token` | yes | — | Token with `pull-requests: write` (use `secrets.GITHUB_TOKEN`) |
+| `test_command` | no | `pytest` | Shell command run before analysis |
+
+On test failure the action runs `agentautopsy analyze` (via the bundled entrypoint), then posts **root cause** and **fix** as a PR comment. Store `ANTHROPIC_API_KEY` in repository secrets.
+
 ## Install
 
 ```bash
@@ -158,7 +203,7 @@ Apache 2.0
 ## Roadmap
 
 - [ ] VS Code extension
-- [ ] GitHub Actions integration  
+- [x] GitHub Actions integration  
 - [ ] Multi-agent tracing
 - [ ] Auto-fix applier
 - [x] LangChain support

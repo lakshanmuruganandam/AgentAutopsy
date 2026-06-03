@@ -1,0 +1,51 @@
+name: AgentAutopsy
+description: Run AgentAutopsy when Python tests fail and post root cause and fix on the pull request.
+author: Abhishek Patel
+
+branding:
+  icon: activity
+  color: blue
+
+inputs:
+  anthropic_api_key:
+    description: Anthropic API key used for failure analysis
+    required: true
+  github_token:
+    description: GitHub token with permission to comment on pull requests
+    required: true
+  test_command:
+    description: Shell command used to run tests
+    required: false
+    default: pytest
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install AgentAutopsy
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -f "${{ github.action_path }}/pyproject.toml" ]; then
+          pip install "${{ github.action_path }}"
+        else
+          pip install agentautopsy
+        fi
+
+    - name: Run tests and analyze failures
+      shell: bash
+      run: bash "${{ github.action_path }}/agentautopsy-action/entrypoint.sh"
+      env:
+        INPUT_ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_TEST_COMMAND: ${{ inputs.test_command }}
+        GITHUB_ACTION_PATH: ${{ github.action_path }}/agentautopsy-action
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_EVENT_PATH: ${{ github.event_path }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
