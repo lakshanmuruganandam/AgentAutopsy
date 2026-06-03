@@ -39,6 +39,16 @@ agentautopsy.watch()
 from agentautopsy import get_callback_handler
 handler = get_callback_handler()
 agent.run(input, config={"callbacks": [handler]})
+
+# LangGraph
+from agentautopsy import get_langgraph_handler
+handler = get_langgraph_handler()
+graph.invoke(input, config={"callbacks": [handler]})
+
+# CrewAI
+from agentautopsy import get_crewai_handler
+handler = get_crewai_handler()
+crew = Crew(agents=[...], callbacks=[handler])
 ```
 
 ```bash
@@ -53,6 +63,43 @@ agentautopsy runs
 agentautopsy replay <run_id>
 agentautopsy stats
 ```
+
+## LangGraph
+
+```python
+import agentautopsy
+from agentautopsy import get_langgraph_handler
+
+agentautopsy.watch()
+handler = get_langgraph_handler()
+
+# Pass the handler into LangGraph invoke config
+result = graph.invoke(
+    {"messages": [("user", "research competitors")]},
+    config={"callbacks": [handler]},
+)
+```
+
+The handler records node start/end, edge traversals, state updates between nodes, tool and LLM activity, and any graph errors in `agentautopsy.db`.
+
+## CrewAI
+
+```python
+import agentautopsy
+from agentautopsy import get_crewai_handler
+from crewai import Crew
+
+agentautopsy.watch()
+handler = get_crewai_handler()
+
+crew = Crew(agents=[researcher, writer], tasks=[...], callbacks=[handler])
+crew.kickoff()
+
+# Or use step_callback on Crew / Agent (supported by current CrewAI releases)
+crew = Crew(agents=[...], step_callback=handler.step_callback)
+```
+
+The handler records task start/end, tool usage, agent handoffs, final crew output, and errors.
 
 ## Usage
 
@@ -98,7 +145,7 @@ Run: `python test_agent.py`
 
 ## Works with
 
-OpenAI, Anthropic, LangChain, any framework using openai or anthropic
+OpenAI, Anthropic, LangChain, LangGraph, CrewAI, any framework using openai or anthropic
 
 ## Requirements
 
@@ -115,6 +162,8 @@ Apache 2.0
 - [ ] Multi-agent tracing
 - [ ] Auto-fix applier
 - [x] LangChain support
+- [x] LangGraph support
+- [x] CrewAI support
 - [x] Slack alerts
 - [x] Web UI
 - [x] Prompt diffing

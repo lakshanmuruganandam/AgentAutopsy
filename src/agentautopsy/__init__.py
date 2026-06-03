@@ -23,6 +23,26 @@ def get_callback_handler():
     return AgentAutopsyCallbackHandler(run_id, db)
 
 
+def get_langgraph_handler():
+    """Return a LangGraph callback handler for the active watch() run."""
+    if _watch_context is None:
+        raise RuntimeError("Call agentautopsy.watch() before get_langgraph_handler()")
+    run_id, db = _watch_context
+    from agentautopsy.langgraph_handler import AgentAutopsyLangGraphHandler
+
+    return AgentAutopsyLangGraphHandler(run_id, db)
+
+
+def get_crewai_handler():
+    """Return a CrewAI callback handler for the active watch() run."""
+    if _watch_context is None:
+        raise RuntimeError("Call agentautopsy.watch() before get_crewai_handler()")
+    run_id, db = _watch_context
+    from agentautopsy.crewai_handler import AgentAutopsyCrewAIHandler
+
+    return AgentAutopsyCrewAIHandler(run_id, db)
+
+
 def watch(
     agent_name: str | None = None,
     parent_run_id: str | None = None,
