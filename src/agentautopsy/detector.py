@@ -7,31 +7,37 @@ from sqlite_utils import Database
 
 
 def detect_failure(run_id: str, db: Database) -> dict[str, Any]:
-    errors = list(
-        db["events"].rows_where(
-            where='run_id = ? AND "type" = ?',
-            where_args=[run_id, "error"],
-            order_by="timestamp",
+    failure_types = ("error", "http_error")
+    for failure_type in failure_types:
+        errors = list(
+            db["events"].rows_where(
+                where='run_id = ? AND "type" = ?',
+                where_args=[run_id, failure_type],
+                order_by="timestamp",
+            )
         )
-    )
-    if not errors:
-        return {"failed": False, "run_id": run_id}
+        if not errors:
+            continue
 
-    row = errors[0]
-    payload: dict[str, Any]
-    raw_payload = row.get("payload")
-    try:
-        payload = json.loads(raw_payload) if raw_payload else {}
-    except (json.JSONDecodeError, TypeError):
-        payload = {}
+        row = errors[0]
+        payload: dict[str, Any]
+        raw_payload = row.get("payload")
+        try:
+            payload = json.loads(raw_payload) if raw_payload else {}
+        except (json.JSONDecodeError, TypeError):
+            payload = {}
 
-    return {
-        "failed": True,
-        "run_id": run_id,
-        "error_type": payload.get("error_type"),
-        "message": payload.get("message"),
-        "failure_event_id": row["id"],
-    }
+        return {
+            "failed": True,
+            "run_id": run_id,
+            "error_type": payload.get("exception_type")
+            or payload.get("error_type"),
+            "message": payload.get("message"),
+            "failure_event_id": row["id"],
+            "failure_event_type": failure_type,
+        }
+
+    return {"failed": False, "run_id": run_id}
 
 
 def take_snapshot(run_id: str, db: Database) -> list[dict[str, Any]]:

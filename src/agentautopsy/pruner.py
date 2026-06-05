@@ -30,7 +30,7 @@ def prune(snapshot: list[dict[str, Any]], failure_event_id: str) -> list[dict[st
         if not isinstance(ev_id, str):
             continue
 
-        if ev_type in ("llm_call", "tool_call", "error"):
+        if ev_type in ("llm_call", "tool_call", "error", "http_error", "http_request"):
             keep_ids.add(ev_id)
 
     pruned = [e for e in ordered if e.get("id") in keep_ids]

@@ -3,6 +3,8 @@
 import json
 from typing import Any
 
+from agentautopsy.interceptor import _http_display_path, infer_http_root_cause
+
 RESET = "\033[0m"
 CYAN = "\033[96m"
 RED = "\033[91m"
@@ -14,6 +16,7 @@ RED_BOLD = "\033[91;1m"
 EVENT_COLORS: dict[str, str] = {
     "llm_call": CYAN,
     "error": RED,
+    "http_error": RED,
     "http_request": YELLOW,
     "http_response": GREEN,
     "llm_response": BLUE,
@@ -39,6 +42,18 @@ def _print_event_line(ev_type: str, detail: str) -> None:
         print(colored_tag)
 
 
+def _failure_payload(rows: list[dict[str, Any]]) -> tuple[str | None, dict[str, Any]]:
+    for row in rows:
+        if row["type"] in ("http_error", "error"):
+            try:
+                payload = json.loads(row["payload"]) if row.get("payload") else {}
+            except (json.JSONDecodeError, TypeError):
+                payload = {}
+            if isinstance(payload, dict):
+                return row["type"], payload
+    return None, {}
+
+
 def print_report(run_id: str, db: Any) -> None:
     sep = "═══════════════════════════════════"
     rows = list(
@@ -48,6 +63,8 @@ def print_report(run_id: str, db: Any) -> None:
             order_by="timestamp",
         )
     )
+    run_row = db["runs"].get(run_id) if db["runs"].exists() else None
+    run_status = run_row.get("status", "unknown") if run_row else "unknown"
 
     print(sep)
     print(" AgentAutopsy — Run Report")
@@ -63,12 +80,18 @@ def print_report(run_id: str, db: Any) -> None:
         cassette = row.get("cassette")
         blob = cassette if cassette is not None else b""
 
+        if ev_type == "http_request":
+            print(f"{payload.get('method')} {_http_display_path(payload.get('url'))}")
+            continue
+        if ev_type == "http_error":
+            exc_type = payload.get("exception_type") or payload.get("error_type")
+            print(f"ERROR: {exc_type}")
+            continue
+
         if ev_type == "llm_call":
             detail = f"model: {payload.get('model')}"
         elif ev_type == "llm_response":
             detail = f"cassette: {len(blob)} bytes"
-        elif ev_type == "http_request":
-            detail = f"{payload.get('method')} {payload.get('url')}"
         elif ev_type == "http_response":
             detail = f"status: {payload.get('status_code')}"
         elif ev_type == "error":
@@ -78,27 +101,18 @@ def print_report(run_id: str, db: Any) -> None:
 
         _print_event_line(ev_type, detail)
 
-    root_sep = "══════════════════════════════════════"
-    error_index = None
-    error_payload: dict[str, Any] = {}
-    for i, row in enumerate(rows, start=1):
-        if row["type"] == "error" and error_index is None:
-            error_index = i
-            try:
-                error_payload = (
-                    json.loads(row["payload"]) if row.get("payload") else {}
-                )
-            except (json.JSONDecodeError, TypeError):
-                error_payload = {}
-            if not isinstance(error_payload, dict):
-                error_payload = {}
-
-    if error_index is not None:
-        print(f"{RED_BOLD}→ Divergence detected at event {error_index}{RESET}")
-        error_type = error_payload.get("error_type")
-        message = error_payload.get("message")
+    failure_type, error_payload = _failure_payload(rows)
+    if failure_type is not None:
+        root_sep = "══════════════════════════════════════"
+        if failure_type == "http_error":
+            root_cause = infer_http_root_cause(error_payload)
+        else:
+            error_type = error_payload.get("error_type")
+            message = error_payload.get("message")
+            root_cause = f"{error_type} — {message}"
         print(root_sep)
-        print(f"{RED_BOLD}Root Cause: {error_type} — {message}{RESET}")
+        print(f"{RED_BOLD}Root cause: {root_cause}{RESET}")
+        print(f"Run status: {run_status}")
         print(root_sep)
 
     print(sep)

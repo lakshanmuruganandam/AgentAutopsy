@@ -124,6 +124,19 @@ def insert_event(
     db["events"].insert(row, pk="id")
 
 
+def mark_run_status(db: Database, run_id: str, status: str) -> None:
+    if db["runs"].exists() and db["runs"].get(run_id) is not None:
+        db["runs"].update(run_id, {"status": status})
+
+
+def mark_run_failed(db: Database, run_id: str) -> None:
+    mark_run_status(db, run_id, "failed")
+
+
+def mark_run_completed(db: Database, run_id: str) -> None:
+    mark_run_status(db, run_id, "completed")
+
+
 if __name__ == "__main__":
     db = get_db()
     create_tables(db)

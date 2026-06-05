@@ -1,12 +1,71 @@
 """OpenAI and Anthropic LLM interceptors for AgentAutopsy."""
 
+from __future__ import annotations
+
 import time
+import traceback
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 import openai
 
 from agentautopsy.cassette import save_cassette
-from agentautopsy.db import insert_event
+from agentautopsy.db import insert_event, mark_run_failed
+
+
+def _http_display_path(url: str | None) -> str:
+    if not url:
+        return ""
+    parsed = urlparse(str(url))
+    return parsed.path or str(url)
+
+
+def infer_http_root_cause(payload: dict[str, Any]) -> str:
+    error_type = str(
+        payload.get("exception_type") or payload.get("error_type") or "Error"
+    )
+    message = str(payload.get("message") or "")
+    url = str(payload.get("url") or "").lower()
+    connection_errors = {
+        "APIConnectionError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "NetworkError",
+        "RemoteProtocolError",
+    }
+    if error_type in connection_errors or "connection" in message.lower():
+        if "openai" in url or "chat/completions" in url:
+            return "OpenAI connection failed"
+        return "HTTP connection failed"
+    if message:
+        return f"{error_type} — {message}"
+    return error_type
+
+
+def insert_http_error(
+    db: Any,
+    run_id: str,
+    *,
+    method: str | None,
+    url: str | None,
+    exc: BaseException,
+) -> None:
+    payload = {
+        "exception_type": type(exc).__name__,
+        "error_type": type(exc).__name__,
+        "message": str(exc),
+        "traceback": traceback.format_exc(),
+        "url": str(url or ""),
+        "method": method or "",
+    }
+    request = getattr(exc, "request", None)
+    if request is not None:
+        payload["method"] = payload["method"] or getattr(request, "method", "")
+        payload["url"] = payload["url"] or str(getattr(request, "url", ""))
+
+    insert_event(db, run_id, "http_error", payload)
+    mark_run_failed(db, run_id)
 
 
 def _estimate_cost_usd(model: str | None, token_input: int, token_output: int) -> float:
@@ -67,6 +126,41 @@ def _insert_llm_response(
     )
 
 
+def _record_http_request(db: Any, run_id: str, method: str, url: str) -> None:
+    insert_event(
+        db,
+        run_id,
+        "http_request",
+        {"method": method, "url": url, "path": _http_display_path(url)},
+    )
+
+
+def _handle_http_response(
+    db: Any,
+    run_id: str,
+    method: str,
+    url: str,
+    response: Any,
+) -> None:
+    status_code = int(getattr(response, "status_code", 0) or 0)
+    insert_event(
+        db,
+        run_id,
+        "http_response",
+        {"status_code": status_code, "url": url, "method": method},
+        cassette=getattr(response, "content", None),
+    )
+    if status_code >= 400:
+        exc = RuntimeError(f"HTTP {status_code} for {method} {_http_display_path(url)}")
+        insert_http_error(
+            db,
+            run_id,
+            method=method,
+            url=url,
+            exc=exc,
+        )
+
+
 def start_interceptor(run_id: str, db: Any) -> None:
     completions = openai.chat.completions
     original_create: Callable[..., Any] = completions.create
@@ -89,6 +183,13 @@ def start_interceptor(run_id: str, db: Any) -> None:
                 run_id,
                 "error",
                 {"error_type": type(e).__name__, "message": str(e)},
+            )
+            insert_http_error(
+                db,
+                run_id,
+                method="POST",
+                url="https://api.openai.com/v1/chat/completions",
+                exc=e,
             )
             raise
         latency_ms = int((time.time() - started) * 1000)
@@ -133,6 +234,13 @@ def start_anthropic_interceptor(run_id: str, db: Any) -> None:
                     "error",
                     {"error_type": type(e).__name__, "message": str(e)},
                 )
+                insert_http_error(
+                    db,
+                    run_id,
+                    method="POST",
+                    url="https://api.anthropic.com/v1/messages",
+                    exc=e,
+                )
                 raise
             latency_ms = int((time.time() - started) * 1000)
             token_input, token_output = _anthropic_usage(response)
@@ -149,35 +257,50 @@ def start_anthropic_interceptor(run_id: str, db: Any) -> None:
 def start_http_interceptor(run_id: str, db: Any) -> None:
     import httpx
 
-    original_send = httpx.Client.send
+    _http_context: dict[str, Any] = getattr(start_http_interceptor, "_context", {})
+    _http_context["run_id"] = run_id
+    _http_context["db"] = db
+    start_http_interceptor._context = _http_context
 
-    def patched_send(self, request, **kwargs):
-        insert_event(
-            db,
-            run_id,
-            "http_request",
-            {"method": request.method, "url": str(request.url)},
-        )
-        try:
-            response = original_send(self, request, **kwargs)
-        except Exception as e:
-            insert_event(
-                db,
-                run_id,
-                "error",
-                {"error_type": type(e).__name__, "message": str(e)},
-            )
-            raise
-        insert_event(
-            db,
-            run_id,
-            "http_response",
-            {"status_code": response.status_code},
-            cassette=response.content,
-        )
-        return response
+    if not getattr(httpx.Client, "_agentautopsy_http_patched", False):
+        original_send = httpx.Client.send
 
-    httpx.Client.send = patched_send
+        def patched_send(self, request, **kwargs):
+            active_run_id = _http_context["run_id"]
+            active_db = _http_context["db"]
+            method = request.method
+            url = str(request.url)
+            _record_http_request(active_db, active_run_id, method, url)
+            try:
+                response = original_send(self, request, **kwargs)
+            except Exception as exc:
+                insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                raise
+            _handle_http_response(active_db, active_run_id, method, url, response)
+            return response
+
+        httpx.Client.send = patched_send
+        httpx.Client._agentautopsy_http_patched = True
+
+    if not getattr(httpx.AsyncClient, "_agentautopsy_http_patched", False):
+        original_async_send = httpx.AsyncClient.send
+
+        async def patched_async_send(self, request, **kwargs):
+            active_run_id = _http_context["run_id"]
+            active_db = _http_context["db"]
+            method = request.method
+            url = str(request.url)
+            _record_http_request(active_db, active_run_id, method, url)
+            try:
+                response = await original_async_send(self, request, **kwargs)
+            except Exception as exc:
+                insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                raise
+            _handle_http_response(active_db, active_run_id, method, url, response)
+            return response
+
+        httpx.AsyncClient.send = patched_async_send
+        httpx.AsyncClient._agentautopsy_http_patched = True
 
 
 if __name__ == "__main__":

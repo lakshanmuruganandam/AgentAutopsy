@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from agentautopsy.analyzer import detect_divergence, diff_prompts
 from agentautopsy.db import get_db
+from agentautopsy.interceptor import _http_display_path
 
 UI_SERVER_PORT = 8765
 FIX_API_BASE = f"http://127.0.0.1:{UI_SERVER_PORT}"
@@ -83,7 +84,10 @@ def _event_detail(
     elif ev_type == "llm_response":
         base = f"cassette: {cassette_size} bytes"
     elif ev_type == "http_request":
-        base = f"{payload.get('method')} {payload.get('url')}"
+        base = f"{payload.get('method')} {_http_display_path(payload.get('url'))}"
+    elif ev_type == "http_error":
+        exc_type = payload.get("exception_type") or payload.get("error_type")
+        base = f"ERROR: {exc_type}"
     elif ev_type == "http_response":
         base = f"status: {payload.get('status_code')}"
     elif ev_type == "error":
@@ -104,7 +108,12 @@ def _event_detail(
 
 
 def _root_cause(events: list[dict[str, Any]]) -> str | None:
+    from agentautopsy.interceptor import infer_http_root_cause
+
     for event in events:
+        if event["type"] == "http_error":
+            payload = event["payload"]
+            return infer_http_root_cause(payload)
         if event["type"] == "error":
             payload = event["payload"]
             error_type = payload.get("error_type", "Error")
@@ -1019,7 +1028,8 @@ def _build_html(
       box-shadow: var(--shadow), 0 0 0 1px rgba(74, 222, 128, 0.2), 0 0 20px rgba(74, 222, 128, 0.15);
       border-color: rgba(74, 222, 128, 0.25);
     }}
-    .event.error:hover {{
+    .event.error:hover,
+    .event.http_error:hover {{
       box-shadow: var(--shadow), 0 0 0 1px rgba(248, 113, 113, 0.25), 0 0 20px rgba(248, 113, 113, 0.18);
       border-color: rgba(248, 113, 113, 0.3);
     }}
@@ -1057,6 +1067,8 @@ def _build_html(
     .event.http_response .type {{ color: var(--green); }}
     .event.error {{ border-left-color: var(--red); }}
     .event.error .type {{ color: var(--red); }}
+    .event.http_error {{ border-left-color: var(--red); }}
+    .event.http_error .type {{ color: var(--red); }}
     .event.llm_response {{ border-left-color: var(--purple); }}
     .event.llm_response .type {{ color: var(--purple); }}
     .root-cause {{

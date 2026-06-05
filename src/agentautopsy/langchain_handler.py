@@ -131,6 +131,21 @@ class AgentAutopsyCallbackHandler(BaseCallbackHandler):
             {"error_type": type(error).__name__, "message": str(error)},
         )
 
+    def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
+        from agentautopsy.interceptor import insert_http_error
+
+        metadata = kwargs.get("metadata")
+        url = ""
+        if isinstance(metadata, dict):
+            url = str(metadata.get("url") or metadata.get("api_url") or "")
+        insert_http_error(
+            self.db,
+            self.run_id,
+            method="POST",
+            url=url or "https://api.openai.com/v1/chat/completions",
+            exc=error,
+        )
+
 
 if __name__ == "__main__":
     # Example: wire AgentAutopsy into a LangChain chain

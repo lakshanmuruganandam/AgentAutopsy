@@ -77,8 +77,15 @@ def watch(
 
         result = detect_failure(run_id, db)
         if not result["failed"]:
+            from agentautopsy.db import mark_run_completed
+
+            mark_run_completed(db, run_id)
             print(f"[AgentAutopsy] run completed cleanly — {run_id}")
             return
+
+        from agentautopsy.db import mark_run_failed
+
+        mark_run_failed(db, run_id)
 
         print(f"\n[AgentAutopsy] failure detected: {result['error_type']}: {result['message']}")
 
