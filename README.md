@@ -1,5 +1,11 @@
 # AgentAutopsy
 
+[![PyPI version](https://img.shields.io/pypi/v/agentautopsy)](https://pypi.org/project/agentautopsy/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/agentautopsy)](https://pypi.org/project/agentautopsy/)
+[![GitHub stars](https://img.shields.io/github/stars/Abhisekhpatel/AgentAutopsy)](https://github.com/Abhisekhpatel/AgentAutopsy)
+[![License](https://img.shields.io/github/license/Abhisekhpatel/AgentAutopsy)](https://github.com/Abhisekhpatel/AgentAutopsy)
+[![Python](https://img.shields.io/pypi/pyversions/agentautopsy)](https://pypi.org/project/agentautopsy/)
+
 > When your agent fails, this tells you exactly why.
 
 ## Why this exists
