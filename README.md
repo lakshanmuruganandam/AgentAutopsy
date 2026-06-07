@@ -1,6 +1,6 @@
 # AgentAutopsy
 
-> When your agent fails, this tells you exactly why
+> When your agent fails, this tells you exactly why.
 
 ## Why this exists
 
