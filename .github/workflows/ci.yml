@@ -37,7 +37,7 @@ jobs:
         
     - name: Run Security Audit (Bandit)
       run: |
-        bandit -r src/agentautopsy/ -ll
+        bandit -c pyproject.toml -r src/agentautopsy/ -ll
         
     - name: Run Unit Tests
       run: |
