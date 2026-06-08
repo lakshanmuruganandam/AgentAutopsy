@@ -1,3 +1,4 @@
+from sqlite_utils import Database
 """Database layer for AgentAutopsy."""
 
 import json
@@ -6,7 +7,6 @@ import contextvars
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlite_utils import Database
 
 OBSERVABILITY_COLUMNS: dict[str, type] = {
     "latency_ms": int,

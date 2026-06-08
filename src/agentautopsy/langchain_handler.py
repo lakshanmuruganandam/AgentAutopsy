@@ -1,6 +1,5 @@
 from __future__ import annotations
 import os
-from typing import Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 
@@ -26,7 +25,7 @@ def get_anthropic_client(timeout: int = 60, max_retries: int = 3) -> ChatAnthrop
 """LangChain callback integration for AgentAutopsy."""
 
 import json
-from typing import Any
+from typing import Any, Optional
 
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
