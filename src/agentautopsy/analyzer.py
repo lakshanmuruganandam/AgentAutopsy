@@ -343,6 +343,16 @@ def detect_divergence(run_id: str) -> list[dict[str, str]]:
     return divergences
 
 
+def _get_anthropic_client() -> anthropic.Anthropic | None:
+    """Return an Anthropic client, or None if the API key is missing or invalid."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return None
+    try:
+        return anthropic.Anthropic()
+    except Exception:
+        return None
+
+
 def analyze(pruned_snapshot, failure):
     lines = [
         f"Error: {failure['error_type']}: {failure['message']}",
@@ -352,19 +362,32 @@ def analyze(pruned_snapshot, failure):
         lines.append(f"- [{e['type']}] {e['payload']}")
     user_message = "\n".join(lines)
 
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=500,
-        system=(
-            "You are AgentAutopsy, an expert AI agent debugger. "
-            "Given a trace of an AI agent's decisions leading up to a failure, output:\n"
-            "FAILURE NODE: <exact step that caused failure>\n"
-            "ROOT CAUSE: <one sentence>\n"
-            "FIX: <concrete patch or instruction>"
-        ),
-        messages=[{"role": "user", "content": user_message}]
-    )
+    client = _get_anthropic_client()
+    if client is None:
+        return (
+            "WARNING: ANTHROPIC_API_KEY is not set. "
+            "Skipping AI analysis. Set ANTHROPIC_API_KEY to enable root-cause analysis."
+        )
+
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            system=(
+                "You are AgentAutopsy, an expert AI agent debugger. "
+                "Given a trace of an AI agent's decisions leading up to a failure, output:\n"
+                "FAILURE NODE: <exact step that caused failure>\n"
+                "ROOT CAUSE: <one sentence>\n"
+                "FIX: <concrete patch or instruction>"
+            ),
+            messages=[{"role": "user", "content": user_message}]
+        )
+    except Exception as exc:
+        return (
+            f"WARNING: Anthropic analysis failed ({type(exc).__name__}: {exc}). "
+            "Skipping AI analysis."
+        )
+
     analysis = response.content[0].text
 
     webhook_url = os.environ.get("AGENTAUTOPSY_SLACK_WEBHOOK")
