@@ -29,6 +29,7 @@ class AgentAutopsyCrewAIHandler:
         self.run_id = run_id
         self.db = db
         self._active_agent: str | None = None
+        self._latest_memory_snapshot: Any = None
 
     def on_task_start(self, agent: str, task: Any) -> None:
         self._active_agent = agent
@@ -101,6 +102,15 @@ class AgentAutopsyCrewAIHandler:
         )
 
     def on_error(self, error: BaseException, agent: str | None = None) -> None:
+        cassette_data = None
+        if self._latest_memory_snapshot is not None:
+            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            if len(raw_bytes) > 50000:
+                truncated = {"_truncated": True, "error": "Payload exceeded 50KB limit."}
+                cassette_data = json.dumps(truncated).encode("utf-8")
+            else:
+                cassette_data = raw_bytes
+            
         insert_event(
             self.db,
             self.run_id,
@@ -111,6 +121,7 @@ class AgentAutopsyCrewAIHandler:
                 "agent": agent or self._active_agent,
                 "framework": "crewai",
             },
+            cassette=cassette_data,
         )
 
     def __call__(self, output: Any) -> None:
@@ -138,6 +149,8 @@ class AgentAutopsyCrewAIHandler:
             payload = dict(step.__dict__)
         else:
             payload = {"raw": str(step)}
+
+        self._latest_memory_snapshot = payload
 
         event_type = str(payload.get("type") or payload.get("event") or "").lower()
         agent = str(payload.get("agent") or payload.get("agent_name") or self._active_agent or "agent")

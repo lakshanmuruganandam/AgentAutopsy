@@ -43,6 +43,7 @@ def share_run(run_id: str) -> Path:
     if not db["runs"].exists():
         raise ValueError(f"Run not found: {run_id}")
 
+    # pylint: disable=no-member
     run_row = db["runs"].get(run_id)
     if run_row is None:
         raise ValueError(f"Run not found: {run_id}")

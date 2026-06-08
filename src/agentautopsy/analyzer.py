@@ -66,12 +66,28 @@ def _parse_event_payload(raw: Any) -> dict[str, Any]:
 
 
 def _load_run_events(db: Any, run_id: str) -> list[dict[str, Any]]:
-    if not db["events"].exists():
+    if not db["events"].exists() or not db["runs"].exists():
         return []
+        
+    run = None
+    try:
+        run = db["runs"].get(run_id)
+    except Exception:
+        pass
+        
+    causality_id = run.get("causality_thread_id") if run else run_id
+    if not causality_id:
+        causality_id = run_id
+        
+    thread_runs = [r["id"] for r in db["runs"].rows_where("causality_thread_id = ?", [causality_id])]
+    if not thread_runs:
+        thread_runs = [run_id]
+
     events: list[dict[str, Any]] = []
+    placeholders = ",".join(["?"] * len(thread_runs))
     for row in db["events"].rows_where(
-        where="run_id = ?",
-        where_args=[run_id],
+        where=f"run_id IN ({placeholders})",
+        where_args=thread_runs,
         order_by="timestamp",
     ):
         events.append(
@@ -338,8 +354,11 @@ def detect_divergence(run_id: str) -> list[dict[str, str]]:
     db = get_db()
     _ensure_divergence_column(db)
     divergences = _compute_divergences(db, run_id)
-    if db["runs"].get(run_id) is not None:
+    # pylint: disable=no-member
+    try:
         db["runs"].update(run_id, {"divergence": json.dumps(divergences)})
+    except Exception:
+        pass
     return divergences
 
 
