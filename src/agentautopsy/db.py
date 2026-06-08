@@ -2,6 +2,7 @@
 
 import json
 import uuid
+import contextvars
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,9 +15,18 @@ OBSERVABILITY_COLUMNS: dict[str, type] = {
     "cost_usd": float,
 }
 
+# Global context for cross-framework tracing
+current_causality_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_causality_id", default=None)
+
+import sqlite3
 
 def get_db() -> Database:
-    return Database(Path.cwd() / "agentautopsy.db")
+    # Enforce WAL mode and extended timeouts for massive swarm concurrency
+    conn = sqlite3.connect(Path.cwd() / "agentautopsy.db", timeout=20.0, check_same_thread=False)
+    db = Database(conn)
+    db.execute("PRAGMA journal_mode=WAL;")
+    db.execute("PRAGMA synchronous=NORMAL;")
+    return db
 
 
 def _ensure_events_observability_columns(db: Database) -> None:
@@ -36,6 +46,8 @@ def _ensure_runs_agent_columns(db: Database) -> None:
         db["runs"].add_column("parent_run_id", str)
     if "agent_name" not in existing:
         db["runs"].add_column("agent_name", str)
+    if "causality_thread_id" not in existing:
+        db["runs"].add_column("causality_thread_id", str)
 
 
 def create_tables(db: Database) -> None:
@@ -47,6 +59,7 @@ def create_tables(db: Database) -> None:
             "framework": str,
             "parent_run_id": str,
             "agent_name": str,
+            "causality_thread_id": str,
         },
         pk="id",
         if_not_exists=True,
@@ -76,6 +89,7 @@ def insert_run(
     *,
     agent_name: str | None = None,
     parent_run_id: str | None = None,
+    causality_thread_id: str | None = None,
 ) -> str:
     run_id = str(uuid.uuid4())
     start_time = datetime.now(timezone.utc).isoformat()
@@ -88,6 +102,17 @@ def insert_run(
     }
     if parent_run_id:
         row["parent_run_id"] = parent_run_id
+    if not causality_thread_id:
+        causality_thread_id = current_causality_id.get()
+
+    if causality_thread_id:
+        row["causality_thread_id"] = causality_thread_id
+    else:
+        # If no causality thread exists, this run starts a new one
+        row["causality_thread_id"] = run_id
+
+    current_causality_id.set(row["causality_thread_id"])
+
     db["runs"].insert(row, pk="id")
     return run_id
 
@@ -135,6 +160,19 @@ def mark_run_failed(db: Database, run_id: str) -> None:
 
 def mark_run_completed(db: Database, run_id: str) -> None:
     mark_run_status(db, run_id, "completed")
+
+
+def prune_old_runs(db: Database, days: int = 7) -> int:
+    import datetime
+    threshold = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    old_runs = [r["id"] for r in db["runs"].rows_where("start_time < ?", [threshold])]
+    if not old_runs:
+        return 0
+    placeholders = ",".join(["?"] * len(old_runs))
+    db.execute(f"DELETE FROM events WHERE run_id IN ({placeholders})", old_runs)
+    db.execute(f"DELETE FROM runs WHERE id IN ({placeholders})", old_runs)
+    db.execute("VACUUM;")
+    return len(old_runs)
 
 
 if __name__ == "__main__":

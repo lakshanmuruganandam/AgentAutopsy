@@ -28,6 +28,7 @@ Examples:
   agentautopsy share abc-123-def
   agentautopsy fix abc-123-def
   agentautopsy fix abc-123-def --create-pr
+  agentautopsy prune [days]
   agentautopsy stats
   agentautopsy ui"""
     )
@@ -42,6 +43,19 @@ def main() -> None:
     cmd = argv[0]
     db = get_db()
     create_tables(db)
+
+    if cmd == "prune":
+        from agentautopsy.db import prune_old_runs
+        days = 7
+        if len(argv) > 1:
+            try:
+                days = int(argv[1])
+            except ValueError:
+                print("Usage: agentautopsy prune [days]")
+                return
+        count = prune_old_runs(db, days=days)
+        print(f"Pruned {count} runs older than {days} days. Database compressed via VACUUM.")
+        return
 
     if cmd == "runs":
         if not db["runs"].exists():

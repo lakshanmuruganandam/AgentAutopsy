@@ -58,6 +58,7 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
         self.run_id = run_id
         self.db = db
         self._last_node: str | None = None
+        self._latest_memory_snapshot: Any = None
 
     def on_graph_node_start(self, node: str, input_data: Any = None) -> None:
         if self._last_node and self._last_node != node:
@@ -87,14 +88,25 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
         )
 
     def on_graph_state_change(self, state: Any) -> None:
+        safe_state = _safe_payload(state)
+        self._latest_memory_snapshot = safe_state
         insert_event(
             self.db,
             self.run_id,
             "langgraph_state_change",
-            {"state": _safe_payload(state), "framework": "langgraph"},
+            {"state": safe_state, "framework": "langgraph"},
         )
 
     def on_graph_error(self, error: BaseException, node: str | None = None) -> None:
+        cassette_data = None
+        if self._latest_memory_snapshot is not None:
+            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            if len(raw_bytes) > 50000:
+                truncated = {"_truncated": True, "error": "Payload exceeded 50KB limit."}
+                cassette_data = json.dumps(truncated).encode("utf-8")
+            else:
+                cassette_data = raw_bytes
+        
         insert_event(
             self.db,
             self.run_id,
@@ -105,6 +117,7 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
                 "node": node or self._last_node,
                 "framework": "langgraph",
             },
+            cassette=cassette_data,
         )
 
     def on_chain_start(

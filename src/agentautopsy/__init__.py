@@ -97,17 +97,24 @@ def watch(
 
         snapshot = take_snapshot(run_id, db)
         pruned = prune(snapshot, result["failure_event_id"])
-        analysis = analyze(pruned, result)
-        print(f"\n[AgentAutopsy] analysis:\n{analysis}")
+        
+        try:
+            analysis = analyze(pruned, result)
+            print(f"\n[AgentAutopsy] analysis:\n{analysis}")
 
-        replay_result = replay(run_id, db, analysis)
-        if replay_result["verified"]:
-            print(f"\n[AgentAutopsy] fix verified ✓")
-            print("✓ Replay passed")
-            print("✓ Failure resolved")
-            store_fix(db, result["error_type"], result["message"], analysis, verified=True)
-        else:
-            print(f"\n[AgentAutopsy] fix not verified — review manually")
+            replay_result = replay(run_id, db, analysis)
+            if replay_result["verified"]:
+                print(f"\n[AgentAutopsy] fix verified ✓")
+                print("✓ Replay passed")
+                print("✓ Failure resolved")
+                store_fix(db, result["error_type"], result["message"], analysis, verified=True)
+            else:
+                print(f"\n[AgentAutopsy] fix not verified — review manually")
+        except Exception as e:
+            if "authentication" in str(e).lower() or "api_key" in str(e).lower():
+                print("\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY).")
+            else:
+                print(f"\n[AgentAutopsy] Auto-fix failed: {e}")
 
         print_report(run_id, db)
 

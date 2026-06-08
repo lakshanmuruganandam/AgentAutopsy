@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AgentAutopsy: Live Blast Radius</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #0f172a; color: white; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .node { stroke: #1e293b; stroke-width: 2px; }
+        .node-agent { fill: #10b981; }
+        .node-crash { fill: #ef4444; }
+        .node-root { fill: #3b82f6; }
+        .link { stroke: #475569; stroke-opacity: 0.6; stroke-width: 2px; }
+        .link-poisoned { stroke: #ef4444; stroke-width: 4px; stroke-dasharray: 5,5; animation: dash 1s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -10; } }
+        text { font-size: 14px; fill: #f8fafc; pointer-events: none; font-weight: 500; text-anchor: middle; }
+        .panel { position: absolute; top: 20px; left: 20px; background: rgba(30, 41, 59, 0.9); padding: 20px; border-radius: 12px; border: 1px solid #334155; }
+        h1 { margin: 0 0 10px 0; font-size: 1.2rem; }
+        p { color: #94a3b8; font-size: 0.9rem; margin: 0; }
+        a { color: #3b82f6; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="panel">
+    <h1><a href="/">&larr; Back to Flat Logs</a></h1>
+    <h1 style="margin-top: 15px;">Live Swarm Topology</h1>
+    <p>Visualizing Distributed Causality</p>
+    <p id="status-text" style="margin-top: 10px; color: #10b981;">Status: Loading Data...</p>
+</div>
+
+    <svg id="topology" style="width: 100vw; height: 100vh;"></svg>
+
+<script>
+    async function loadTopology() {
+        try {
+            const res = await fetch("/api/topology");
+            const data = await res.json();
+            
+            if (!data.nodes || data.nodes.length === 0) {
+                document.getElementById("status-text").innerText = "Status: No agents traced yet.";
+                document.getElementById("status-text").style.color = "#94a3b8";
+                return;
+            }
+            
+            const hasCrash = data.links.some(l => l.poisoned);
+            if(hasCrash) {
+                document.getElementById("status-text").innerText = "Status: Cascading Failure Detected";
+                document.getElementById("status-text").style.color = "#ef4444";
+            } else {
+                document.getElementById("status-text").innerText = "Status: Swarm Healthy";
+                document.getElementById("status-text").style.color = "#10b981";
+            }
+
+            renderGraph(data);
+        } catch(e) {
+            document.getElementById("status-text").innerText = "Status: API Error";
+            document.getElementById("status-text").style.color = "#ef4444";
+        }
+    }
+
+    function renderGraph(data) {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const svg = d3.select("#topology");
+        svg.selectAll("*").remove();
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(150))
+            .force("charge", d3.forceManyBody().strength(-800))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("class", d => d.poisoned ? "link link-poisoned" : "link");
+
+        const poisonedTargets = new Set(data.links.filter(l => l.poisoned).map(l => l.target.id || l.target));
+
+        const node = svg.append("g")
+            .selectAll("circle")
+            .data(data.nodes)
+            .join("circle")
+            .attr("r", 25)
+            .attr("class", d => {
+                if(poisonedTargets.has(d.id)) return "node node-crash";
+                return "node node-agent";
+            })
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        const labels = svg.append("g")
+            .selectAll("text")
+            .data(data.nodes)
+            .join("text")
+            .text(d => d.group)
+            .attr("dy", 40);
+
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+            node
+                .attr("cx", d => Math.max(25, Math.min(width - 25, d.x)))
+                .attr("cy", d => Math.max(25, Math.min(height - 25, d.y)));
+            labels
+                .attr("x", d => Math.max(25, Math.min(width - 25, d.x)))
+                .attr("y", d => Math.max(25, Math.min(height - 25, d.y)));
+        });
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    }
+
+    loadTopology();
+    setInterval(loadTopology, 3000); // Live update every 3 seconds
+</script>
+
+</body>
+</html>
