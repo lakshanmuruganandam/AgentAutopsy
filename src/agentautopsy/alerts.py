@@ -57,7 +57,7 @@ def send_slack_alert(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urllib.request.urlopen(request, timeout=10) as response:  # nosec B310
         if response.status >= 400:
             raise urllib.error.HTTPError(
                 webhook_url,

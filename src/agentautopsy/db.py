@@ -169,8 +169,8 @@ def prune_old_runs(db: Database, days: int = 7) -> int:
     if not old_runs:
         return 0
     placeholders = ",".join(["?"] * len(old_runs))
-    db.execute(f"DELETE FROM events WHERE run_id IN ({placeholders})", old_runs)
-    db.execute(f"DELETE FROM runs WHERE id IN ({placeholders})", old_runs)
+    db.execute(f"DELETE FROM events WHERE run_id IN ({placeholders})", old_runs)  # nosec B608
+    db.execute(f"DELETE FROM runs WHERE id IN ({placeholders})", old_runs)  # nosec B608
     db.execute("VACUUM;")
     return len(old_runs)
 
