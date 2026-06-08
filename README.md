@@ -1,5 +1,6 @@
 # AgentAutopsy
 
+[![AgentAutopsy CI](https://github.com/Abhisekhpatel/AgentAutopsy/actions/workflows/ci.yml/badge.svg)](https://github.com/Abhisekhpatel/AgentAutopsy/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/agentautopsy?color=blue)](https://pypi.org/project/agentautopsy/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/agentautopsy?color=green)](https://pypi.org/project/agentautopsy/)
 [![GitHub stars](https://img.shields.io/github/stars/Abhisekhpatel/AgentAutopsy?style=social)](https://github.com/Abhisekhpatel/AgentAutopsy)
