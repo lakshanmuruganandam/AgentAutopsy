@@ -2337,7 +2337,7 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             nodes = []
             links = []
             if db["runs"].exists():
-                for row in db["runs"].rows:
+                for row in db.query("SELECT * FROM runs ORDER BY start_time DESC LIMIT 2000"):
                     nodes.append({"id": row["id"], "group": row.get("agent_name", "agent"), "causality": row.get("causality_thread_id")})
                     if row.get("parent_run_id"):
                         links.append({"source": row["parent_run_id"], "target": row["id"], "poisoned": row.get("status") == "failed"})

@@ -104,7 +104,12 @@ class AgentAutopsyCrewAIHandler:
     def on_error(self, error: BaseException, agent: str | None = None) -> None:
         cassette_data = None
         if self._latest_memory_snapshot is not None:
-            cassette_data = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            if len(raw_bytes) > 50000:
+                truncated = {"_truncated": True, "error": "Payload exceeded 50KB limit."}
+                cassette_data = json.dumps(truncated).encode("utf-8")
+            else:
+                cassette_data = raw_bytes
             
         insert_event(
             self.db,

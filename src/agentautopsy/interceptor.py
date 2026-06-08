@@ -260,6 +260,11 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
     _http_context: dict[str, Any] = getattr(start_http_interceptor, "_context", {})
     _http_context["run_id"] = run_id
     _http_context["db"] = db
+    
+    # Pre-fetch causality id once per run instead of per HTTP request (O(1) optimization)
+    res = db.execute("SELECT causality_thread_id FROM runs WHERE id=?", [run_id]).fetchone()
+    _http_context["causality_id"] = str(res[0]) if res and res[0] else None
+    
     start_http_interceptor._context = _http_context
 
     if not getattr(httpx.Client, "_agentautopsy_http_patched", False):
@@ -270,10 +275,9 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
             active_run_id = _http_context["run_id"]
             active_db = _http_context["db"]
             
-            # Retrieve causality thread ID and inject into outgoing requests
-            res = active_db.execute("SELECT causality_thread_id FROM runs WHERE id=?", [active_run_id]).fetchone()
-            if res and res[0]:
-                request.headers["X-AgentAutopsy-Causality-ID"] = str(res[0])
+            # Inject causality thread ID from pre-fetched context
+            if _http_context.get("causality_id"):
+                request.headers["X-AgentAutopsy-Causality-ID"] = _http_context["causality_id"]
             request.headers["X-AgentAutopsy-Parent-Run"] = str(active_run_id)
 
             method = request.method
@@ -312,10 +316,9 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
             active_run_id = _http_context["run_id"]
             active_db = _http_context["db"]
             
-            # Retrieve causality thread ID and inject into outgoing requests
-            res = active_db.execute("SELECT causality_thread_id FROM runs WHERE id=?", [active_run_id]).fetchone()
-            if res and res[0]:
-                request.headers["X-AgentAutopsy-Causality-ID"] = str(res[0])
+            # Inject causality thread ID from pre-fetched context
+            if _http_context.get("causality_id"):
+                request.headers["X-AgentAutopsy-Causality-ID"] = _http_context["causality_id"]
             request.headers["X-AgentAutopsy-Parent-Run"] = str(active_run_id)
 
             method = request.method

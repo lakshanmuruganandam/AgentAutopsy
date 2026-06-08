@@ -72,7 +72,7 @@ def _load_run_events(db: Any, run_id: str) -> list[dict[str, Any]]:
     run = None
     try:
         run = db["runs"].get(run_id)
-    except:
+    except Exception:
         pass
         
     causality_id = run.get("causality_thread_id") if run else run_id

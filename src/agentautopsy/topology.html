@@ -30,7 +30,7 @@
     <p id="status-text" style="margin-top: 10px; color: #10b981;">Status: Loading Data...</p>
 </div>
 
-<svg id="topology" width="100vw" height="100vh"></svg>
+    <svg id="topology" style="width: 100vw; height: 100vh;"></svg>
 
 <script>
     async function loadTopology() {
@@ -77,13 +77,15 @@
             .join("line")
             .attr("class", d => d.poisoned ? "link link-poisoned" : "link");
 
+        const poisonedTargets = new Set(data.links.filter(l => l.poisoned).map(l => l.target.id || l.target));
+
         const node = svg.append("g")
             .selectAll("circle")
             .data(data.nodes)
             .join("circle")
             .attr("r", 25)
             .attr("class", d => {
-                if(data.links.some(l => l.target === d.id && l.poisoned)) return "node node-crash";
+                if(poisonedTargets.has(d.id)) return "node node-crash";
                 return "node node-agent";
             })
             .call(d3.drag()
