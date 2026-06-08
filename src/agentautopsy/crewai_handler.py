@@ -103,7 +103,7 @@ class AgentAutopsyCrewAIHandler:
 
     def on_error(self, error: BaseException, agent: str | None = None) -> None:
         cassette_data = None
-        if self._latest_memory_snapshot:
+        if self._latest_memory_snapshot is not None:
             cassette_data = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
             
         insert_event(

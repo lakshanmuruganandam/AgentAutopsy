@@ -112,7 +112,7 @@ def watch(
                 print(f"\n[AgentAutopsy] fix not verified — review manually")
         except Exception as e:
             if "authentication" in str(e).lower() or "api_key" in str(e).lower():
-                print("\n[AgentAutopsy] Auto-fix bypassed: ANTHROPIC_API_KEY not set.")
+                print("\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY).")
             else:
                 print(f"\n[AgentAutopsy] Auto-fix failed: {e}")
 

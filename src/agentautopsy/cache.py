@@ -42,6 +42,7 @@ def store_fix(
     patch: str,
     verified: bool = True,
 ) -> str:
+    import datetime
     fix_id = str(uuid.uuid4())
     db["fix_cache"].insert(
         {
@@ -51,6 +52,7 @@ def store_fix(
             "patch": patch,
             "verified": verified,
             "hits": 0,
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         },
         pk="id",
     )

@@ -286,6 +286,7 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
                 try:
                     response = original_send(self, request, **kwargs)
                     if response.status_code in (429, 500, 502, 503, 504) and attempt < retries:
+                        response.close()
                         time.sleep(backoff ** attempt)
                         continue
                     _handle_http_response(active_db, active_run_id, method, url, response)
@@ -327,6 +328,7 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
                 try:
                     response = await original_async_send(self, request, **kwargs)
                     if response.status_code in (429, 500, 502, 503, 504) and attempt < retries:
+                        await response.aclose()
                         await asyncio.sleep(backoff ** attempt)
                         continue
                     _handle_http_response(active_db, active_run_id, method, url, response)

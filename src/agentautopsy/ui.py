@@ -1329,7 +1329,7 @@ def _build_html(
     <div class="brand">
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <h1 class="logo">AgentAutopsy</h1>
-        <a href="/topology" target="_blank" style="background: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; border: 1px solid #dc2626; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">View Live Topology</a>
+        <a href="/topology" target="_blank" rel="noopener noreferrer" style="background: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; border: 1px solid #dc2626; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">View Live Topology</a>
       </div>
       <p class="tagline">When your agent fails, this tells you exactly why.</p>
     </div>
