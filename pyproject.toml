@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "agentautopsy"
+version = "1.6.1"
+description = "Post-mortem debugger for AI agents"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{ name = "Abhishek Patel" }]
+keywords = ["ai-agents", "debugging", "llm", "observability"]
+dependencies = [
+    "openai",
+    "anthropic",
+    "sqlite-utils",
+    "sqlite-vec",
+    "httpx",
+]
+
+[project.urls]
+Homepage = "https://github.com/Abhisekhpatel/AgentAutopsy"
+
+[project.scripts]
+agentautopsy = "agentautopsy.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
