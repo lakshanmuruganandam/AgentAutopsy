@@ -1,0 +1,2 @@
+[console_scripts]
+agentautopsy = agentautopsy.cli:main
