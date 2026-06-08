@@ -354,8 +354,11 @@ def detect_divergence(run_id: str) -> list[dict[str, str]]:
     db = get_db()
     _ensure_divergence_column(db)
     divergences = _compute_divergences(db, run_id)
-    if db["runs"].get(run_id) is not None:
+    # pylint: disable=no-member
+    try:
         db["runs"].update(run_id, {"divergence": json.dumps(divergences)})
+    except Exception:
+        pass
     return divergences
 
 

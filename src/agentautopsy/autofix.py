@@ -114,7 +114,7 @@ def _identify_fix_location(context: dict[str, Any]) -> dict[str, Any]:
         ),
         messages=[{"role": "user", "content": prompt}],
     )
-    location = _parse_json_response(response.content[0].text)
+    location = _parse_json_response(next((getattr(b, "text", "") for b in response.content if getattr(b, "type", "") == "text"), ""))
     if not location.get("file_path"):
         raise ValueError("Claude could not identify a file to patch")
     return location

@@ -1,9 +1,10 @@
 """Cassette serialization for AgentAutopsy LLM responses."""
 
 import json
+from typing import Any
 
 
-def save_cassette(response_object: object) -> bytes:
+def save_cassette(response_object: Any) -> bytes:
     try:
         dumped = response_object.model_dump()
         return json.dumps(dumped).encode()

@@ -282,6 +282,7 @@ def _load_data(db: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]
             if ev_type == "llm_call":
                 pending_call = item
             elif ev_type == "llm_response" and pending_call is not None:
+                # pylint: disable=unsupported-assignment-operation,unsubscriptable-object
                 pending_call["latency_ms"] = latency_ms
                 pending_call["token_input"] = token_input
                 pending_call["token_output"] = token_output

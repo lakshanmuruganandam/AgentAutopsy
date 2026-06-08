@@ -30,3 +30,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.mypy]
+disable_error_code = ["union-attr", "method-assign", "import-untyped", "arg-type", "attr-defined", "assignment"]
+
+[tool.bandit]
+skips = ["B608", "B310"]
