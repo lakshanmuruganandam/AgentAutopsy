@@ -1,3 +1,38 @@
+import time
+from functools import wraps
+from typing import Any, Callable, TypeVar
+
+
+F = TypeVar('F', bound=Callable[..., Any])
+
+
+def exponential_backoff_retry(max_retries: int = 3, initial_timeout: int = 60, max_timeout: int = 90):
+    """Decorator to implement exponential backoff retry logic for LLM calls."""
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            timeout = initial_timeout
+            last_error = None
+            
+            for attempt in range(max_retries):
+                try:
+                    # Override timeout in kwargs if present
+                    if 'timeout' in kwargs:
+                        kwargs['timeout'] = timeout
+                    return func(*args, **kwargs)
+                except TimeoutError as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        wait_time = min(2 ** attempt, max_timeout - initial_timeout)
+                        time.sleep(wait_time)
+                        timeout = min(timeout + 30, max_timeout)
+                    continue
+            
+            raise last_error or TimeoutError(f"Request failed after {max_retries} retries")
+        return wrapper
+    return decorator
+
+
 from __future__ import annotations
 import os
 from typing import Any, Optional

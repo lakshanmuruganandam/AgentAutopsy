@@ -25,6 +25,8 @@ src/agentautopsy.egg-info/dependency_links.txt
 src/agentautopsy.egg-info/entry_points.txt
 src/agentautopsy.egg-info/requires.txt
 src/agentautopsy.egg-info/top_level.txt
+tests/test_analyzer.py
+tests/test_autofix.py
 tests/test_crewai.py
 tests/test_day7.py
 tests/test_full_pipeline.py
