@@ -3,23 +3,17 @@ from unittest.mock import patch, MagicMock
 from agentautopsy.analyzer import _parse_analysis
 
 class TestAnalyzer(unittest.TestCase):
-    def test_parse_analysis_json(self):
-        json_text = '{"file_path": "test.py", "line": 10, "search": "foo", "replace": "bar", "test_file": "test.py"}'
-        result = _parse_analysis(json_text)
-        self.assertEqual(result["file_path"], "test.py")
-        self.assertEqual(result["search"], "foo")
+    def test_parse_analysis(self):
+        text = "ROOT CAUSE: A network timeout occurred.\nFIX: Increase timeout to 60s."
+        root_cause, fix = _parse_analysis(text)
+        self.assertEqual(root_cause, "A network timeout occurred.")
+        self.assertEqual(fix, "Increase timeout to 60s.")
         
-    def test_parse_analysis_markdown(self):
-        md_text = '''Here is the analysis:
-```json
-{"file_path": "test2.py", "line": 20, "search": "a", "replace": "b", "test_file": "test2.py"}
-```'''
-        result = _parse_analysis(md_text)
-        self.assertEqual(result["file_path"], "test2.py")
-        
-    def test_parse_analysis_invalid(self):
-        with self.assertRaises(ValueError):
-            _parse_analysis("This is just text without JSON")
+    def test_parse_analysis_regex_fallback(self):
+        text = "Here is my analysis.\nroot cause: Null pointer.\nfix: Check for null."
+        root_cause, fix = _parse_analysis(text)
+        self.assertEqual(root_cause, "Null pointer.")
+        self.assertEqual(fix, "Check for null.")
             
 if __name__ == '__main__':
     unittest.main()
