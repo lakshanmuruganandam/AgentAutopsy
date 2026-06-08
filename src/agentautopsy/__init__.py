@@ -1,5 +1,7 @@
 """AgentAutopsy — when your agent fails, this tells you exactly why."""
 
+from __future__ import annotations
+
 import atexit
 
 from agentautopsy.db import create_tables, get_db, insert_run
@@ -97,7 +99,7 @@ def watch(
 
         snapshot = take_snapshot(run_id, db)
         pruned = prune(snapshot, result["failure_event_id"])
-        
+
         try:
             analysis = analyze(pruned, result)
             print(f"\n[AgentAutopsy] analysis:\n{analysis}")

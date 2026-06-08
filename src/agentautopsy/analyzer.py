@@ -1,5 +1,7 @@
 """Fix analyzer for AgentAutopsy."""
 
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -372,7 +374,7 @@ def _get_anthropic_client() -> anthropic.Anthropic | None:
         return None
 
 
-def analyze(pruned_snapshot, failure):
+def analyze(pruned_snapshot: list[dict[str, Any]], failure: dict[str, Any]) -> str:
     lines = [
         f"Error: {failure['error_type']}: {failure['message']}",
         "Trace:"
@@ -406,6 +408,9 @@ def analyze(pruned_snapshot, failure):
             f"WARNING: Anthropic analysis failed ({type(exc).__name__}: {exc}). "
             "Skipping AI analysis."
         )
+
+    if not response.content:
+        return "WARNING: Anthropic returned an empty analysis response."
 
     analysis = response.content[0].text
 

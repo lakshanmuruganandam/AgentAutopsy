@@ -1,8 +1,11 @@
 """Database layer for AgentAutopsy."""
 
-import json
-import uuid
+from __future__ import annotations
+
 import contextvars
+import json
+import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,10 +18,11 @@ OBSERVABILITY_COLUMNS: dict[str, type] = {
     "cost_usd": float,
 }
 
-# Global context for cross-framework tracing
-current_causality_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_causality_id", default=None)
+current_causality_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "current_causality_id",
+    default=None,
+)
 
-import sqlite3
 
 def get_db() -> Database:
     # Enforce WAL mode and extended timeouts for massive swarm concurrency
@@ -108,10 +112,9 @@ def insert_run(
     if causality_thread_id:
         row["causality_thread_id"] = causality_thread_id
     else:
-        # If no causality thread exists, this run starts a new one
         row["causality_thread_id"] = run_id
 
-    current_causality_id.set(row["causality_thread_id"])
+    current_causality_id.set(str(row["causality_thread_id"]))
 
     db["runs"].insert(row, pk="id")
     return run_id
@@ -165,7 +168,13 @@ def mark_run_completed(db: Database, run_id: str) -> None:
 def prune_old_runs(db: Database, days: int = 7) -> int:
     import datetime
     threshold = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
-    old_runs = [r["id"] for r in db["runs"].rows_where("start_time < ?", [threshold])]
+    old_runs = [
+        r["id"]
+        for r in db["runs"].rows_where(
+            where="start_time < ?",
+            where_args=[threshold],
+        )
+    ]
     if not old_runs:
         return 0
     placeholders = ",".join(["?"] * len(old_runs))

@@ -17,6 +17,7 @@ dependencies = [
     "sqlite-utils",
     "sqlite-vec",
     "httpx",
+    "requests",
 ]
 
 [project.urls]

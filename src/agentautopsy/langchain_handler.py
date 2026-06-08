@@ -1,53 +1,38 @@
-import time
-from functools import wraps
-from typing import Any, Callable, TypeVar
-
-
-F = TypeVar('F', bound=Callable[..., Any])
-
-
-def exponential_backoff_retry(max_retries: int = 3, initial_timeout: int = 60, max_timeout: int = 90):
-    """Decorator to implement exponential backoff retry logic for LLM calls."""
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            timeout = initial_timeout
-            last_error = None
-            
-            for attempt in range(max_retries):
-                try:
-                    # Override timeout in kwargs if present
-                    if 'timeout' in kwargs:
-                        kwargs['timeout'] = timeout
-                    return func(*args, **kwargs)
-                except TimeoutError as e:
-                    last_error = e
-                    if attempt < max_retries - 1:
-                        wait_time = min(2 ** attempt, max_timeout - initial_timeout)
-                        time.sleep(wait_time)
-                        timeout = min(timeout + 30, max_timeout)
-                    continue
-            
-            raise last_error or TimeoutError(f"Request failed after {max_retries} retries")
-        return wrapper
-    return decorator
-
+"""LangChain callback integration for AgentAutopsy."""
 
 from __future__ import annotations
-import os
-from typing import Any, Optional
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 
-# Configure LLM clients with increased timeout and retry logic
+import json
+import os
+from typing import Any
+
+from agentautopsy.cassette import save_cassette
+from agentautopsy.db import insert_event
+
+try:
+    from langchain_core.callbacks import BaseCallbackHandler
+    from langchain_core.outputs import LLMResult
+except ImportError:  # pragma: no cover - optional dependency
+    BaseCallbackHandler = object  # type: ignore[misc, assignment]
+    LLMResult = Any  # type: ignore[misc, assignment]
+
+try:
+    from langchain_anthropic import ChatAnthropic
+    from langchain_openai import ChatOpenAI
+except ImportError:  # pragma: no cover - optional dependency
+    ChatAnthropic = Any  # type: ignore[misc, assignment]
+    ChatOpenAI = Any  # type: ignore[misc, assignment]
+
+
 def get_openai_client(timeout: int = 60, max_retries: int = 3) -> ChatOpenAI:
     """Initialize OpenAI client with timeout and retry configuration."""
     return ChatOpenAI(
         model="gpt-4",
         timeout=timeout,
         max_retries=max_retries,
-        api_key=os.getenv("OPENAI_API_KEY")
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
+
 
 def get_anthropic_client(timeout: int = 60, max_retries: int = 3) -> ChatAnthropic:
     """Initialize Anthropic client with timeout and retry configuration."""
@@ -55,19 +40,8 @@ def get_anthropic_client(timeout: int = 60, max_retries: int = 3) -> ChatAnthrop
         model="claude-haiku-4-5-20251001",
         timeout=timeout,
         max_retries=max_retries,
-        api_key=os.getenv("ANTHROPIC_API_KEY")
+        api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
-
-"""LangChain callback integration for AgentAutopsy."""
-
-import json
-from typing import Any
-
-from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.outputs import LLMResult
-
-from agentautopsy.cassette import save_cassette
-from agentautopsy.db import insert_event
 
 
 def _model_from_serialized(serialized: dict[str, Any]) -> str:
@@ -182,19 +156,7 @@ class AgentAutopsyCallbackHandler(BaseCallbackHandler):
 
 
 if __name__ == "__main__":
-    # Example: wire AgentAutopsy into a LangChain chain
-    #
-    # import agentautopsy
-    # from langchain_openai import ChatOpenAI
-    # from langchain_core.prompts import ChatPromptTemplate
-    #
-    # agentautopsy.watch()
-    # handler = agentautopsy.get_callback_handler()
-    #
-    # prompt = ChatPromptTemplate.from_messages([("user", "{question}")])
-    # chain = prompt | ChatOpenAI()
-    # chain.invoke(
-    #     {"question": "hello"},
-    #     config={"callbacks": [handler]},
-    # )
-    print("Usage: agentautopsy.watch() then pass get_callback_handler() in config={'callbacks': [...]}")
+    print(
+        "Usage: agentautopsy.watch() then pass get_callback_handler() "
+        "in config={'callbacks': [...]}"
+    )

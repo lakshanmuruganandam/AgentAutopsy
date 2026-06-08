@@ -9,9 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import anthropic
-
-from agentautopsy.analyzer import _parse_analysis, analyze
+from agentautopsy.analyzer import _get_anthropic_client, _parse_analysis, analyze
 from agentautopsy.cache import lookup_fix, setup_cache
 from agentautopsy.db import create_tables, get_db
 from agentautopsy.detector import detect_failure, take_snapshot
@@ -101,7 +99,11 @@ def _identify_fix_location(context: dict[str, Any]) -> dict[str, Any]:
         f"Project files:\n" + "\n".join(project_files)
     )
 
-    client = anthropic.Anthropic()
+    client = _get_anthropic_client()
+    if client is None:
+        raise ValueError(
+            "ANTHROPIC_API_KEY is not set — cannot identify fix location"
+        )
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=800,
@@ -114,7 +116,12 @@ def _identify_fix_location(context: dict[str, Any]) -> dict[str, Any]:
         ),
         messages=[{"role": "user", "content": prompt}],
     )
-    location = _parse_json_response(next((getattr(b, "text", "") for b in response.content if getattr(b, "type", "") == "text"), ""))
+    text_blocks = [
+        getattr(block, "text", "")
+        for block in response.content
+        if getattr(block, "type", "") == "text"
+    ]
+    location = _parse_json_response(text_blocks[0] if text_blocks else "")
     if not location.get("file_path"):
         raise ValueError("Claude could not identify a file to patch")
     return location
