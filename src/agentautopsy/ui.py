@@ -1327,7 +1327,10 @@ def _build_html(
 <body>
   <header>
     <div class="brand">
-      <h1 class="logo">AgentAutopsy</h1>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h1 class="logo">AgentAutopsy</h1>
+        <a href="/topology" target="_blank" style="background: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; border: 1px solid #dc2626; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">View Live Topology</a>
+      </div>
       <p class="tagline">When your agent fails, this tells you exactly why.</p>
     </div>
   </header>
@@ -2319,6 +2322,26 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
                 "text/html; charset=utf-8",
                 self.html_content.encode("utf-8"),
             )
+            return
+        if path == "/topology":
+            from pathlib import Path
+            try:
+                with open(Path(__file__).parent / "topology.html", "rb") as f:
+                    self._send_bytes(200, "text/html; charset=utf-8", f.read())
+            except FileNotFoundError:
+                self._send_json(404, {"error": "topology.html not found"})
+            return
+        if path == "/api/topology":
+            from agentautopsy.db import get_db
+            db = get_db()
+            nodes = []
+            links = []
+            if db["runs"].exists():
+                for row in db["runs"].rows:
+                    nodes.append({"id": row["id"], "group": row.get("agent_name", "agent"), "causality": row.get("causality_thread_id")})
+                    if row.get("parent_run_id"):
+                        links.append({"source": row["parent_run_id"], "target": row["id"], "poisoned": row.get("status") == "failed"})
+            self._send_json(200, {"nodes": nodes, "links": links})
             return
         self._send_json(404, {"error": "Not found"})
 

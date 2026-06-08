@@ -62,9 +62,14 @@ def lookup_fix(
     failure_type: str,
     failure_text: str,
     threshold: float = 0.6,
+    ttl_days: int = 14,
 ) -> str | None:
     if not db["fix_cache"].exists():
         return None
+        
+    import datetime
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ttl_days)).isoformat()
+    db.execute("DELETE FROM fix_cache WHERE created_at < ?", [cutoff])
 
     best_patch: str | None = None
     best_score = -1.0

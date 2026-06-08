@@ -266,18 +266,39 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
         original_send = httpx.Client.send
 
         def patched_send(self, request, **kwargs):
+            import time
             active_run_id = _http_context["run_id"]
             active_db = _http_context["db"]
+            
+            # Retrieve causality thread ID and inject into outgoing requests
+            res = active_db.execute("SELECT causality_thread_id FROM runs WHERE id=?", [active_run_id]).fetchone()
+            if res and res[0]:
+                request.headers["X-AgentAutopsy-Causality-ID"] = str(res[0])
+            request.headers["X-AgentAutopsy-Parent-Run"] = str(active_run_id)
+
             method = request.method
             url = str(request.url)
             _record_http_request(active_db, active_run_id, method, url)
-            try:
-                response = original_send(self, request, **kwargs)
-            except Exception as exc:
-                insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
-                raise
-            _handle_http_response(active_db, active_run_id, method, url, response)
-            return response
+            
+            retries = 3
+            backoff = 1.5
+            for attempt in range(retries + 1):
+                try:
+                    response = original_send(self, request, **kwargs)
+                    if response.status_code in (429, 500, 502, 503, 504) and attempt < retries:
+                        time.sleep(backoff ** attempt)
+                        continue
+                    _handle_http_response(active_db, active_run_id, method, url, response)
+                    return response
+                except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                    if attempt < retries:
+                        time.sleep(backoff ** attempt)
+                        continue
+                    insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                    raise
+                except Exception as exc:
+                    insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                    raise
 
         httpx.Client.send = patched_send
         httpx.Client._agentautopsy_http_patched = True
@@ -286,18 +307,39 @@ def start_http_interceptor(run_id: str, db: Any) -> None:
         original_async_send = httpx.AsyncClient.send
 
         async def patched_async_send(self, request, **kwargs):
+            import asyncio
             active_run_id = _http_context["run_id"]
             active_db = _http_context["db"]
+            
+            # Retrieve causality thread ID and inject into outgoing requests
+            res = active_db.execute("SELECT causality_thread_id FROM runs WHERE id=?", [active_run_id]).fetchone()
+            if res and res[0]:
+                request.headers["X-AgentAutopsy-Causality-ID"] = str(res[0])
+            request.headers["X-AgentAutopsy-Parent-Run"] = str(active_run_id)
+
             method = request.method
             url = str(request.url)
             _record_http_request(active_db, active_run_id, method, url)
-            try:
-                response = await original_async_send(self, request, **kwargs)
-            except Exception as exc:
-                insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
-                raise
-            _handle_http_response(active_db, active_run_id, method, url, response)
-            return response
+            
+            retries = 3
+            backoff = 1.5
+            for attempt in range(retries + 1):
+                try:
+                    response = await original_async_send(self, request, **kwargs)
+                    if response.status_code in (429, 500, 502, 503, 504) and attempt < retries:
+                        await asyncio.sleep(backoff ** attempt)
+                        continue
+                    _handle_http_response(active_db, active_run_id, method, url, response)
+                    return response
+                except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                    if attempt < retries:
+                        await asyncio.sleep(backoff ** attempt)
+                        continue
+                    insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                    raise
+                except Exception as exc:
+                    insert_http_error(active_db, active_run_id, method=method, url=url, exc=exc)
+                    raise
 
         httpx.AsyncClient.send = patched_async_send
         httpx.AsyncClient._agentautopsy_http_patched = True
