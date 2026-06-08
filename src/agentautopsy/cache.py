@@ -55,6 +55,7 @@ def store_fix(
             "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         },
         pk="id",
+        alter=True,
     )
     return fix_id
 
@@ -71,7 +72,10 @@ def lookup_fix(
         
     import datetime
     cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ttl_days)).isoformat()
-    db.execute("DELETE FROM fix_cache WHERE created_at < ?", [cutoff])
+    try:
+        db.execute("DELETE FROM fix_cache WHERE created_at < ?", [cutoff])
+    except Exception:
+        pass
 
     best_patch: str | None = None
     best_score = -1.0
