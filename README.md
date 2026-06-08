@@ -8,6 +8,23 @@
 
 > When your agent fails, this tells you exactly why.
 
+## Install
+
+```bash
+pip install agentautopsy
+```
+
+## Features
+
+- **Interceptor** — Captures OpenAI, Anthropic, and HTTP traffic automatically with zero code changes (`agentautopsy.watch()`)
+- **Web UI** — Browse runs, inspect events, and debug failures in a local dashboard (`agentautopsy ui`)
+- **Auto-fix** — Generates and applies patch suggestions for failed runs (`agentautopsy fix <run_id>`)
+- **GitHub PR** — Opens a pull request with the proposed fix (`agentautopsy fix <run_id> --create-pr`)
+- **Slack alerts** — Posts failure notifications to your channel when a run fails
+- **Prompt diffing** — Compares prompts in the current run against the previous run
+- **Replay** — Step through failed runs event-by-event in the UI and CLI (`agentautopsy replay <run_id>`)
+- **Multi-agent graph** — Visualizes agent handoffs and parent/child run chains (`agentautopsy agents`)
+
 ## Why this exists
 
 Every time an AI agent fails, you get a useless stack trace.
@@ -72,12 +89,6 @@ jobs:
 | `test_command` | no | `pytest` | Shell command run before analysis |
 
 On test failure the action runs `agentautopsy analyze` (via the bundled entrypoint), then posts **root cause** and **fix** as a PR comment. Store `ANTHROPIC_API_KEY` in repository secrets.
-
-## Install
-
-```bash
-pip install agentautopsy
-```
 
 ## Examples
 
@@ -184,6 +195,10 @@ Get your free key at console.anthropic.com
 Set `AGENTAUTOPSY_SLACK_WEBHOOK=your-webhook-url` and AgentAutopsy will automatically alert your Slack channel when any agent fails.
 
 ## Quick start
+
+```bash
+pip install agentautopsy
+```
 
 Create test_agent.py and paste this:
 
