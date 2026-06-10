@@ -5,11 +5,9 @@ from __future__ import annotations
 import atexit
 
 from agentautopsy.db import create_tables, get_db, insert_run
-from agentautopsy.interceptor import (
-    start_interceptor,
-    start_anthropic_interceptor,
-    start_http_interceptor,
-)
+from agentautopsy.interceptor import (start_anthropic_interceptor,
+                                      start_http_interceptor,
+                                      start_interceptor)
 from agentautopsy.reporter import print_report
 
 _watch_context: tuple[str, object] | None = None
@@ -71,11 +69,11 @@ def watch(
         print(f"[AgentAutopsy] parent run {parent_run_id}")
 
     def on_exit():
+        from agentautopsy.analyzer import analyze
+        from agentautopsy.cache import lookup_fix, store_fix
         from agentautopsy.detector import detect_failure, take_snapshot
         from agentautopsy.pruner import prune
-        from agentautopsy.analyzer import analyze
         from agentautopsy.replay import replay
-        from agentautopsy.cache import lookup_fix, store_fix
 
         result = detect_failure(run_id, db)
         if not result["failed"]:
@@ -89,7 +87,9 @@ def watch(
 
         mark_run_failed(db, run_id)
 
-        print(f"\n[AgentAutopsy] failure detected: {result['error_type']}: {result['message']}")
+        print(
+            f"\n[AgentAutopsy] failure detected: {result['error_type']}: {result['message']}"
+        )
 
         cached = lookup_fix(db, result["error_type"], result["message"])
         if cached:
@@ -109,12 +109,16 @@ def watch(
                 print(f"\n[AgentAutopsy] fix verified ✓")
                 print("✓ Replay passed")
                 print("✓ Failure resolved")
-                store_fix(db, result["error_type"], result["message"], analysis, verified=True)
+                store_fix(
+                    db, result["error_type"], result["message"], analysis, verified=True
+                )
             else:
                 print(f"\n[AgentAutopsy] fix not verified — review manually")
         except Exception as e:
             if "authentication" in str(e).lower() or "api_key" in str(e).lower():
-                print("\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY).")
+                print(
+                    "\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY)."
+                )
             else:
                 print(f"\n[AgentAutopsy] Auto-fix failed: {e}")
 

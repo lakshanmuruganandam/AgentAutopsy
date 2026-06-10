@@ -37,7 +37,10 @@ class TestAutofix(unittest.TestCase):
         result = _parse_json_response(json_text)
         self.assertEqual(result["file_path"], "test.py")
 
-    @patch("agentautopsy.autofix.analyze", return_value="WARNING: ANTHROPIC_API_KEY is not set.")
+    @patch(
+        "agentautopsy.autofix.analyze",
+        return_value="WARNING: ANTHROPIC_API_KEY is not set.",
+    )
     def test_get_run_fix_context_when_analyze_returns_warning(self, _mock_analyze):
         insert_event(
             self.db,

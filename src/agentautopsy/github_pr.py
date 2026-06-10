@@ -66,9 +66,7 @@ def _branch_sha(token: str, owner: str, repo: str, branch: str) -> str:
     return response.json()["object"]["sha"]
 
 
-def _create_branch(
-    token: str, owner: str, repo: str, branch: str, sha: str
-) -> None:
+def _create_branch(token: str, owner: str, repo: str, branch: str, sha: str) -> None:
     response = requests.post(
         f"https://api.github.com/repos/{owner}/{repo}/git/refs",
         headers=_github_headers(token),

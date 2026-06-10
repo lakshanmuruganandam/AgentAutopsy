@@ -191,7 +191,7 @@ def start_api_server(
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     print(f"AgentAutopsy API listening on http://{bind_host}:{bind_port}")
-    print("POST /analyze  —  {\"task\": \"...\", \"logs\": \"...\"}")
+    print('POST /analyze  —  {"task": "...", "logs": "..."}')
     try:
         while True:
             threading.Event().wait(3600)

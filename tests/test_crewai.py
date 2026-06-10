@@ -74,7 +74,7 @@ class TestCrewAIHandler(unittest.TestCase):
 
         error_rows = list(
             self.db["events"].rows_where(
-                where='run_id = ? AND type = ?',
+                where="run_id = ? AND type = ?",
                 where_args=[self.run_id, "error"],
             )
         )

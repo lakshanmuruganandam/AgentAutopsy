@@ -132,7 +132,9 @@ def build_agent_chains(
         if parent_id:
             children_by_parent.setdefault(parent_id, []).append(run)
 
-    def walk_chain(run: dict[str, Any], depth: int) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    def walk_chain(
+        run: dict[str, Any], depth: int
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
         summary = runs_data.get(run["id"], {}).get("summary", {})
         nodes = [
             {
@@ -2345,7 +2347,9 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
-        self._send_bytes(status, "application/json", json.dumps(payload).encode("utf-8"))
+        self._send_bytes(
+            status, "application/json", json.dumps(payload).encode("utf-8")
+        )
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
@@ -2358,6 +2362,7 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/topology":
             from pathlib import Path
+
             try:
                 with open(Path(__file__).parent / "topology.html", "rb") as f:
                     self._send_bytes(200, "text/html; charset=utf-8", f.read())
@@ -2366,14 +2371,29 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/topology":
             from agentautopsy.db import get_db
+
             db = get_db()
             nodes = []
             links = []
             if db["runs"].exists():
-                for row in db.query("SELECT * FROM runs ORDER BY start_time DESC LIMIT 2000"):
-                    nodes.append({"id": row["id"], "group": row.get("agent_name", "agent"), "causality": row.get("causality_thread_id")})
+                for row in db.query(
+                    "SELECT * FROM runs ORDER BY start_time DESC LIMIT 2000"
+                ):
+                    nodes.append(
+                        {
+                            "id": row["id"],
+                            "group": row.get("agent_name", "agent"),
+                            "causality": row.get("causality_thread_id"),
+                        }
+                    )
                     if row.get("parent_run_id"):
-                        links.append({"source": row["parent_run_id"], "target": row["id"], "poisoned": row.get("status") == "failed"})
+                        links.append(
+                            {
+                                "source": row["parent_run_id"],
+                                "target": row["id"],
+                                "poisoned": row.get("status") == "failed",
+                            }
+                        )
             self._send_json(200, {"nodes": nodes, "links": links})
             return
         self._send_json(404, {"error": "Not found"})

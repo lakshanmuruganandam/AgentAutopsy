@@ -20,7 +20,11 @@ def send_slack_alert(
         "blocks": [
             {
                 "type": "header",
-                "text": {"type": "plain_text", "text": "❌ Agent Run Failed", "emoji": True},
+                "text": {
+                    "type": "plain_text",
+                    "text": "❌ Agent Run Failed",
+                    "emoji": True,
+                },
             },
             {
                 "type": "section",
@@ -34,11 +38,17 @@ def send_slack_alert(
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Root Cause:*\n{root_cause or 'Unknown'}"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Root Cause:*\n{root_cause or 'Unknown'}",
+                },
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Fix:*\n{fix or 'No fix suggested'}"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Fix:*\n{fix or 'No fix suggested'}",
+                },
             },
             {
                 "type": "section",

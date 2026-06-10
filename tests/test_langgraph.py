@@ -45,7 +45,9 @@ class TestLangGraphHandler(unittest.TestCase):
         handler = AgentAutopsyLangGraphHandler(self.run_id, self.db)
 
         handler.on_graph_node_start("research", {"query": "market data"})
-        handler.on_graph_state_change({"messages": [{"role": "user", "content": "analyze"}]})
+        handler.on_graph_state_change(
+            {"messages": [{"role": "user", "content": "analyze"}]}
+        )
         handler.on_graph_node_end("research", {"summary": "done"})
         handler.on_graph_edge("research", "writer")
         handler.on_graph_node_start("writer", {"draft": True})
@@ -60,7 +62,7 @@ class TestLangGraphHandler(unittest.TestCase):
 
         error_rows = list(
             self.db["events"].rows_where(
-                where='run_id = ? AND type = ?',
+                where="run_id = ? AND type = ?",
                 where_args=[self.run_id, "error"],
             )
         )

@@ -49,6 +49,7 @@ def main() -> None:
 
     if cmd == "prune":
         from agentautopsy.db import prune_old_runs
+
         days = 7
         if len(argv) > 1:
             try:
@@ -57,7 +58,9 @@ def main() -> None:
                 print("Usage: agentautopsy prune [days]")
                 return
         count = prune_old_runs(db, days=days)
-        print(f"Pruned {count} runs older than {days} days. Database compressed via VACUUM.")
+        print(
+            f"Pruned {count} runs older than {days} days. Database compressed via VACUUM."
+        )
         return
 
     if cmd == "runs":
@@ -72,7 +75,9 @@ def main() -> None:
             agent = row.get("agent_name") or "agent"
             parent = row.get("parent_run_id") or ""
             parent_suffix = f"\tparent={parent[:8]}..." if parent else ""
-            print(f"{row['id']}\t{agent}\t{row['start_time']}\t{row['status']}{parent_suffix}")
+            print(
+                f"{row['id']}\t{agent}\t{row['start_time']}\t{row['status']}{parent_suffix}"
+            )
         return
 
     if cmd == "agents":
@@ -133,7 +138,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
         if create_pr_flag:
             if not result.get("success"):
-                print("Skipping PR creation because fix did not succeed.", file=sys.stderr)
+                print(
+                    "Skipping PR creation because fix did not succeed.", file=sys.stderr
+                )
                 sys.exit(1)
             try:
                 pr = create_pr(
@@ -211,6 +218,7 @@ def main() -> None:
             sys.exit(2)
         mcp_cmd = argv[1:]
         from agentautopsy.mcp_interceptor import run_mcp_proxy
+
         run_mcp_proxy(mcp_cmd)
         return
 

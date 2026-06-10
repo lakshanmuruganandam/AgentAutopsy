@@ -79,7 +79,9 @@ class AgentAutopsyCrewAIHandler:
             },
         )
 
-    def on_agent_handoff(self, from_agent: str, to_agent: str, context: Any = None) -> None:
+    def on_agent_handoff(
+        self, from_agent: str, to_agent: str, context: Any = None
+    ) -> None:
         self._active_agent = to_agent
         insert_event(
             self.db,
@@ -104,13 +106,18 @@ class AgentAutopsyCrewAIHandler:
     def on_error(self, error: BaseException, agent: str | None = None) -> None:
         cassette_data = None
         if self._latest_memory_snapshot is not None:
-            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode(
+                "utf-8"
+            )
             if len(raw_bytes) > 50000:
-                truncated = {"_truncated": True, "error": "Payload exceeded 50KB limit."}
+                truncated = {
+                    "_truncated": True,
+                    "error": "Payload exceeded 50KB limit.",
+                }
                 cassette_data = json.dumps(truncated).encode("utf-8")
             else:
                 cassette_data = raw_bytes
-            
+
         insert_event(
             self.db,
             self.run_id,
@@ -153,7 +160,12 @@ class AgentAutopsyCrewAIHandler:
         self._latest_memory_snapshot = payload
 
         event_type = str(payload.get("type") or payload.get("event") or "").lower()
-        agent = str(payload.get("agent") or payload.get("agent_name") or self._active_agent or "agent")
+        agent = str(
+            payload.get("agent")
+            or payload.get("agent_name")
+            or self._active_agent
+            or "agent"
+        )
 
         if "error" in event_type or payload.get("error"):
             error = payload.get("error")
