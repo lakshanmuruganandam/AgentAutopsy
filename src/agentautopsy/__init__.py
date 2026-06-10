@@ -101,7 +101,7 @@ def watch(
         _t.sleep(0.1)
         print(f"\n\033[1;38;5;196m❌ [AgentAutopsy] Critical Failure Intercepted\033[0m")
         _t.sleep(0.1)
-        print(f"\033[38;5;244m▶ Error: \033[1;37m{result['error_type']}\033[0m")
+        print(f"\033[38;5;244m▶ Error: \033[1;38;5;196m{result['error_type']}\033[0m")
         _t.sleep(0.1)
         print(f"\033[38;5;244m▶ Trace: \033[38;5;196m{result['message']}\033[0m")
 
