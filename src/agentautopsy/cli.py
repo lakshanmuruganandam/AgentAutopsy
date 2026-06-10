@@ -19,6 +19,7 @@ Commands:
   share <run_id>    Export a run trace to a shareable JSON file
   fix <run_id>      Apply an automated fix for a failed run
   stats             Show fix cache statistics
+  serve             Start HTTP API for Monadix (POST /analyze)
   ui                Open the web UI in your browser
 
 Examples:
@@ -30,6 +31,7 @@ Examples:
   agentautopsy fix abc-123-def --create-pr
   agentautopsy prune [days]
   agentautopsy stats
+  agentautopsy serve
   agentautopsy ui"""
     )
 
@@ -176,6 +178,21 @@ def main() -> None:
             print("total_tokens_output: 0")
             print("total_tokens: 0")
             print("total_cost_usd: 0.000000")
+        return
+
+    if cmd == "serve":
+        from agentautopsy.api import start_api_server
+
+        host = None
+        port = None
+        if "--host" in argv:
+            host = argv[argv.index("--host") + 1]
+        if "--port" in argv:
+            port = int(argv[argv.index("--port") + 1])
+        try:
+            start_api_server(host=host, port=port)
+        except KeyboardInterrupt:
+            print("\nAPI stopped.")
         return
 
     if cmd == "ui":
