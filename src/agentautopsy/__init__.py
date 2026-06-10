@@ -97,13 +97,21 @@ def watch(
 
         mark_run_failed(db, run_id)
 
-        print(
-            f"\n[AgentAutopsy] failure detected: {result['error_type']}: {result['message']}"
-        )
+        import time as _t
+        _t.sleep(0.1)
+        print(f"\n\033[1;38;5;196m❌ [AgentAutopsy] Critical Failure Intercepted\033[0m")
+        _t.sleep(0.1)
+        print(f"\033[38;5;244m▶ Error: \033[1;37m{result['error_type']}\033[0m")
+        _t.sleep(0.1)
+        print(f"\033[38;5;244m▶ Trace: \033[38;5;196m{result['message']}\033[0m")
 
         cached = lookup_fix(db, result["error_type"], result["message"])
         if cached:
-            print(f"[AgentAutopsy] cache hit — fix found instantly:")
+            _t.sleep(0.8)
+            print(f"\n\033[38;5;39m▶ \033[1;38;5;141mAI Root Cause Analysis Triggered...\033[0m")
+            _t.sleep(0.8)
+            print(f"\033[38;5;39m▶ \033[1;38;5;82mCache Hit — Fix Found Instantly\033[0m\n")
+            _t.sleep(0.1)
             print(cached)
             return
 
