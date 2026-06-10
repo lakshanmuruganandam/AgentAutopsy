@@ -194,6 +194,11 @@ def start_interceptor(run_id: str, db: Any) -> None:
             raise
         latency_ms = int((time.time() - started) * 1000)
         token_input, token_output = _openai_usage(response)
+        import time as _t
+        _t.sleep(0.1)
+        print(f"\033[38;5;39m▶ \033[38;5;244mIntercepted \033[1;38;5;82mOpenAI\033[38;5;244m API Call (\033[38;5;141m{model_name}\033[38;5;244m)\033[0m")
+        _t.sleep(0.1)
+        print(f"\033[38;5;39m  \033[38;5;244mLatency: {latency_ms}ms | Tokens: {token_input} in, {token_output} out\033[0m")
         _insert_llm_response(
             db, run_id, model_name, response, latency_ms, token_input, token_output
         )
