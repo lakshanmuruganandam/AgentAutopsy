@@ -63,6 +63,14 @@ def watch(
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
+    
+    import sys
+    _original_excepthook = sys.excepthook
+    def _autopsy_excepthook(exc_type, exc_value, exc_traceback):
+        from agentautopsy.db import insert_event
+        insert_event(db, run_id, "error", {"error_type": exc_type.__name__, "message": str(exc_value)})
+        _original_excepthook(exc_type, exc_value, exc_traceback)
+    sys.excepthook = _autopsy_excepthook
     import time
     label = agent_name or "agent"
     print("\n\033[38;5;39m" + "━" * 60 + "\033[0m"); time.sleep(0.1)
