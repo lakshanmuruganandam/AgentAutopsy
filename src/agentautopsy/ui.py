@@ -2182,6 +2182,29 @@ def _build_html(
       }}
     }}
 
+    function buildMcpViewer(ev) {{
+      let html = '<div class="prompt-viewer">';
+      html += '<div class="inspect-label">MCP Details</div>';
+      if (ev.type === "mcp_tool_call") {{
+        const payload = ev.payload || {{}};
+        const toolName = payload.tool_name || "Unknown Tool";
+        const args = payload.arguments || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">Tool Call: ' + escapeHtml(toolName) + '</div>';
+        html += '<pre class="prompt-block system">' + syntaxHighlight(JSON.stringify(args, null, 2)) + '</pre>';
+      }} else if (ev.type === "mcp_response") {{
+        const payload = ev.payload || {{}};
+        const result = payload.result || payload.error || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">Tool Response</div>';
+        html += '<pre class="prompt-block user">' + syntaxHighlight(JSON.stringify(result, null, 2)) + '</pre>';
+      }} else if (ev.type === "mcp_initialize") {{
+        const payload = ev.payload || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">MCP Handshake</div>';
+        html += '<pre class="prompt-block system">' + syntaxHighlight(JSON.stringify(payload, null, 2)) + '</pre>';
+      }}
+      html += '</div>';
+      return html;
+    }}
+
     function renderRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -2227,6 +2250,9 @@ def _build_html(
         html += '<div class="event-body" id="expand-' + escapeHtml(eventId) + '">';
         if (ev.type === "llm_call") {{
           html += buildPromptViewer(ev, events, idx);
+        }}
+        if (ev.type === "mcp_tool_call" || ev.type === "mcp_response" || ev.type === "mcp_initialize") {{
+          html += buildMcpViewer(ev);
         }}
         html += '<div class="inspect-label">Payload</div>';
         html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';

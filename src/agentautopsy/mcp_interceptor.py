@@ -70,6 +70,8 @@ def run_mcp_proxy(command: list[str]):
     create_tables(db)
     run_id = insert_run(db, agent_name="mcp_server")
     
+    print(f"[AgentAutopsy] Intercepting MCP server: {' '.join(command)}", file=sys.stderr)
+    
     # Start the subprocess
     proc = subprocess.Popen(
         command,
