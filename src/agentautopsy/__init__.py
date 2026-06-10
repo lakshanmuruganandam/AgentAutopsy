@@ -10,9 +10,20 @@ from agentautopsy.interceptor import (
     start_anthropic_interceptor,
     start_http_interceptor,
 )
+from agentautopsy.mcp_handler import MCPAutopsy
 from agentautopsy.reporter import print_report
 
+__all__ = [
+    "MCPAutopsy",
+    "get_callback_handler",
+    "get_crewai_handler",
+    "get_langgraph_handler",
+    "watch",
+    "watch_mcp",
+]
+
 _watch_context: tuple[str, object] | None = None
+_mcp_autopsy: object | None = None
 
 
 def get_callback_handler():
@@ -43,6 +54,23 @@ def get_crewai_handler():
     from agentautopsy.crewai_handler import AgentAutopsyCrewAIHandler
 
     return AgentAutopsyCrewAIHandler(run_id, db)
+
+
+def watch_mcp(
+    server_name: str | None = None,
+    *,
+    agent_name: str | None = None,
+    parent_run_id: str | None = None,
+):
+    """Start MCP post-mortem tracing — one import, one line."""
+    global _mcp_autopsy
+
+    _mcp_autopsy = MCPAutopsy.start(
+        server_name=server_name,
+        agent_name=agent_name,
+        parent_run_id=parent_run_id,
+    )
+    return _mcp_autopsy
 
 
 def watch(
