@@ -2,7 +2,6 @@
 
 import re
 import uuid
-from typing import Any
 
 from sqlite_utils import Database
 

@@ -9,8 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agentautopsy.analyzer import (_get_anthropic_client, _parse_analysis,
-                                   analyze)
+from agentautopsy.analyzer import _get_anthropic_client, _parse_analysis, analyze
 from agentautopsy.cache import lookup_fix, setup_cache
 from agentautopsy.db import create_tables, get_db
 from agentautopsy.detector import detect_failure, take_snapshot

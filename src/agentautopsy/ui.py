@@ -2438,14 +2438,28 @@ def start_ui() -> Path:
     server = _start_ui_server(html)
     webbrowser.open(f"{FIX_API_BASE}/")
     import time
-    print(f"\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"); time.sleep(0.1)
-    print(f"\033[1;38;5;82m⚡ AGENTAUTOPSY \033[0m\033[38;5;244m— Web Dashboard\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;244m▶ Status: \033[1;37mRunning Locally\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;244m▶ URL:    \033[38;5;82m{FIX_API_BASE}/\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;244m▶ Report: \033[38;5;141m{output_path}\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"); time.sleep(0.1)
-    print(f"\033[38;5;240m(Press Ctrl+C to stop the server)\033[0m\n")
+
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[1;38;5;82m⚡ AGENTAUTOPSY \033[0m\033[38;5;244m— Web Dashboard\033[0m")
+    time.sleep(0.1)
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[38;5;244m▶ Status: \033[1;37mRunning Locally\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ URL:    \033[38;5;82m{FIX_API_BASE}/\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Report: \033[38;5;141m{output_path}\033[0m")
+    time.sleep(0.1)
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[38;5;240m(Press Ctrl+C to stop the server)\033[0m\n")
     try:
         while True:
             threading.Event().wait(3600)

@@ -11,8 +11,13 @@ from contextlib import redirect_stdout
 
 import httpx
 
-from agentautopsy.db import (create_tables, get_db, insert_event, insert_run,
-                             mark_run_failed)
+from agentautopsy.db import (
+    create_tables,
+    get_db,
+    insert_event,
+    insert_run,
+    mark_run_failed,
+)
 from agentautopsy.detector import detect_failure
 from agentautopsy.interceptor import start_http_interceptor
 from agentautopsy.reporter import print_report

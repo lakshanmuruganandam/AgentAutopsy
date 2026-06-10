@@ -2,7 +2,6 @@ import json
 import subprocess
 import sys
 import threading
-import time
 from typing import Any
 
 from agentautopsy.db import create_tables, get_db, insert_event, insert_run
@@ -39,7 +38,7 @@ def _log_event(db: Any, run_id: str, message: dict):
         # Check for initialize
         elif message.get("method") == "initialize":
             insert_event(db, run_id, "mcp_initialize", message.get("params", {}))
-    except Exception as e:
+    except Exception:
         # Ignore logging errors so we don't break the proxy
         pass
 

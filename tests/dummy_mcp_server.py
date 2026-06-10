@@ -34,7 +34,15 @@ def main():
             if method == "exit":
                 break
         except Exception:
-            print(json.dumps({"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}}), flush=True)
+            print(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32700, "message": "Parse error"},
+                    }
+                ),
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

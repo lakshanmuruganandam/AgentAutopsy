@@ -4,6 +4,7 @@ src/agentautopsy/__init__.py
 src/agentautopsy/alerts.py
 src/agentautopsy/analyzer.py
 src/agentautopsy/api.py
+src/agentautopsy/auto.py
 src/agentautopsy/autofix.py
 src/agentautopsy/cache.py
 src/agentautopsy/cassette.py
@@ -15,6 +16,7 @@ src/agentautopsy/github_pr.py
 src/agentautopsy/interceptor.py
 src/agentautopsy/langchain_handler.py
 src/agentautopsy/langgraph_handler.py
+src/agentautopsy/mcp_interceptor.py
 src/agentautopsy/pruner.py
 src/agentautopsy/replay.py
 src/agentautopsy/reporter.py
@@ -34,4 +36,5 @@ tests/test_day7.py
 tests/test_full_pipeline.py
 tests/test_http_error.py
 tests/test_langgraph.py
+tests/test_mcp_interceptor.py
 tests/test_smoke.py
