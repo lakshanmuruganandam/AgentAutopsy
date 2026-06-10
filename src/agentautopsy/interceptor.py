@@ -162,12 +162,12 @@ def _handle_http_response(
 
 
 def start_interceptor(run_id: str, db: Any) -> None:
-    completions = openai.chat.completions
-    original_create: Callable[..., Any] = completions.create
+    from openai.resources.chat.completions import Completions
+    original_create = Completions.create
 
     def create_wrapper(*args: Any, **kwargs: Any) -> Any:
-        model_name = kwargs.get("model")
-        messages_list = kwargs.get("messages")
+        model_name = kwargs.get("model", "unknown")
+        messages_list = kwargs.get("messages", [])
         insert_event(
             db,
             run_id,
@@ -204,7 +204,7 @@ def start_interceptor(run_id: str, db: Any) -> None:
         )
         return response
 
-    completions.create = create_wrapper
+    Completions.create = create_wrapper
 
 
 def start_anthropic_interceptor(run_id: str, db: Any) -> None:
