@@ -21,6 +21,7 @@ Commands:
   stats             Show fix cache statistics
   serve             Start HTTP API for Monadix (POST /analyze)
   ui                Open the web UI in your browser
+  mcp <cmd...>      Run an MCP server and proxy stdio to trace it
 
 Examples:
   agentautopsy runs
@@ -202,6 +203,15 @@ def main() -> None:
             start_ui()
         except KeyboardInterrupt:
             print("\nUI stopped.")
+        return
+
+    if cmd == "mcp":
+        if len(argv) < 2:
+            print("usage: agentautopsy mcp <command> [args...]", file=sys.stderr)
+            sys.exit(2)
+        mcp_cmd = argv[1:]
+        from agentautopsy.mcp_interceptor import run_mcp_proxy
+        run_mcp_proxy(mcp_cmd)
         return
 
     print(f"Unknown command: {cmd}", file=sys.stderr)

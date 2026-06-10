@@ -1062,6 +1062,12 @@ def _build_html(
     }}
     .event.llm_call {{ border-left-color: var(--cyan); }}
     .event.llm_call .type {{ color: var(--cyan); }}
+    .event.mcp_tool_call {{ border-left-color: #d946ef; }}
+    .event.mcp_tool_call .type {{ color: #d946ef; }}
+    .event.mcp_response {{ border-left-color: var(--green); }}
+    .event.mcp_response .type {{ color: var(--green); }}
+    .event.mcp_initialize {{ border-left-color: #eab308; }}
+    .event.mcp_initialize .type {{ color: #eab308; }}
     .event.http_request {{ border-left-color: var(--yellow); }}
     .event.http_request .type {{ color: var(--yellow); }}
     .event.http_response {{ border-left-color: var(--green); }}

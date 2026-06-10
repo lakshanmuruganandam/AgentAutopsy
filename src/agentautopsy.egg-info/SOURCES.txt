@@ -3,6 +3,7 @@ pyproject.toml
 src/agentautopsy/__init__.py
 src/agentautopsy/alerts.py
 src/agentautopsy/analyzer.py
+src/agentautopsy/api.py
 src/agentautopsy/autofix.py
 src/agentautopsy/cache.py
 src/agentautopsy/cassette.py
@@ -26,6 +27,7 @@ src/agentautopsy.egg-info/entry_points.txt
 src/agentautopsy.egg-info/requires.txt
 src/agentautopsy.egg-info/top_level.txt
 tests/test_analyzer.py
+tests/test_api.py
 tests/test_autofix.py
 tests/test_crewai.py
 tests/test_day7.py
