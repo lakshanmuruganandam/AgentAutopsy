@@ -63,14 +63,15 @@ def watch(
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
+    import time
     label = agent_name or "agent"
-    print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
-    print(f"\033[1;38;5;82m⚡ [AgentAutopsy] Engine Initialized\033[0m")
-    print(f"\033[38;5;244m▶ Target:  \033[1;37m{label}\033[0m")
-    print(f"\033[38;5;244m▶ Session: \033[38;5;141m{run_id}\033[0m")
+    print("\n\033[38;5;39m" + "━" * 60 + "\033[0m"); time.sleep(0.1)
+    print(f"\033[1;38;5;82m⚡ [AgentAutopsy] Engine Initialized\033[0m"); time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Target:  \033[1;37m{label}\033[0m"); time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Session: \033[38;5;141m{run_id}\033[0m"); time.sleep(0.1)
     if parent_run_id:
-        print(f"\033[38;5;244m▶ Parent:  \033[38;5;141m{parent_run_id}\033[0m")
-    print(f"\033[38;5;244m▶ Status:  \033[38;5;11mIntercepting LLM & HTTP Traffic in real-time...\033[0m")
+        print(f"\033[38;5;244m▶ Parent:  \033[38;5;141m{parent_run_id}\033[0m"); time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Status:  \033[38;5;11mIntercepting LLM & HTTP Traffic in real-time...\033[0m"); time.sleep(0.1)
     print("\033[38;5;39m" + "━" * 60 + "\033[0m\n")
 
     def on_exit():
@@ -85,10 +86,10 @@ def watch(
             from agentautopsy.db import mark_run_completed
 
             mark_run_completed(db, run_id)
-            print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
-            print(f"\033[1;38;5;82m✅ [AgentAutopsy] Analysis Complete\033[0m")
-            print(f"\033[38;5;244m▶ Run \033[38;5;141m{run_id}\033[38;5;244m executed flawlessly.\033[0m")
-            print(f"\033[38;5;244m▶ Type \033[1;37magentautopsy ui\033[38;5;244m in your terminal to view the trace graph.\033[0m")
+            print("\n\033[38;5;39m" + "━" * 60 + "\033[0m"); time.sleep(0.1)
+            print(f"\033[1;38;5;82m✅ [AgentAutopsy] Analysis Complete\033[0m"); time.sleep(0.1)
+            print(f"\033[38;5;244m▶ Run \033[38;5;141m{run_id}\033[38;5;244m executed flawlessly.\033[0m"); time.sleep(0.1)
+            print(f"\033[38;5;244m▶ Type \033[1;37magentautopsy ui\033[38;5;244m in your terminal to view the trace graph.\033[0m"); time.sleep(0.1)
             print("\033[38;5;39m" + "━" * 60 + "\033[0m\n")
             return
 
