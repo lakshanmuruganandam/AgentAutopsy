@@ -11,7 +11,13 @@ from contextlib import redirect_stdout
 
 import httpx
 
-from agentautopsy.db import create_tables, get_db, insert_event, insert_run, mark_run_failed
+from agentautopsy.db import (
+    create_tables,
+    get_db,
+    insert_event,
+    insert_run,
+    mark_run_failed,
+)
 from agentautopsy.detector import detect_failure
 from agentautopsy.interceptor import start_http_interceptor
 from agentautopsy.reporter import print_report
@@ -65,7 +71,7 @@ class TestHttpError(unittest.TestCase):
 
         error_rows = list(
             self.db["events"].rows_where(
-                where='run_id = ? AND type = ?',
+                where="run_id = ? AND type = ?",
                 where_args=[self.run_id, "http_error"],
             )
         )
@@ -79,7 +85,9 @@ class TestHttpError(unittest.TestCase):
         run = self.db["runs"].get(self.run_id)
         self.assertEqual(run["status"], "failed")
 
-    def test_replay_output_shows_http_requests_error_root_cause_and_status(self) -> None:
+    def test_replay_output_shows_http_requests_error_root_cause_and_status(
+        self,
+    ) -> None:
         insert_event(
             self.db,
             self.run_id,

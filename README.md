@@ -19,7 +19,8 @@ pip install agentautopsy
 
 - **LLM interceptor** — Monkey-patches OpenAI and Anthropic calls; records every prompt, response, and error
 - **HTTP interceptor** — Captures outbound HTTP requests, responses, and connection failures (`http_error` events)
-- **Zero-config watch** — One line (`agentautopsy.watch()`) instruments your existing agent code
+- **Zero-config watch** — One line (`import agentautopsy.auto` or `agentautopsy.watch()`) instruments your existing agent code
+- **MCP proxy tracing** — Natively intercepts and parses JSON-RPC streams between Claude Desktop and your MCP servers
 - **SQLite trace store** — Persists full decision traces locally in `agentautopsy.db`
 - **Cassette recording** — Serializes LLM responses for offline replay
 - **Failure detection** — Finds the exact failing step in a run
@@ -84,6 +85,7 @@ and a verified fix — automatically.
 
 agentautopsy runs        # see all agent runs
 agentautopsy replay <id> # replay any failure
+agentautopsy mcp <cmd>   # transparently proxy and trace an MCP server via stdio
 agentautopsy stats       # fix cache stats
 
 ## GitHub Actions
@@ -207,8 +209,7 @@ The handler records task start/end, tool usage, agent handoffs, final crew outpu
 ## Usage
 
 ```python
-import agentautopsy
-agentautopsy.watch()
+import agentautopsy.auto
 # your existing agent code here — nothing else changes
 ```
 
@@ -244,11 +245,19 @@ pip install agentautopsy
 Create test_agent.py and paste this:
 
 ```python
-import agentautopsy
-agentautopsy.watch()
+import agentautopsy.auto
 ```
 
 Run: `python test_agent.py`
+
+### Trace Model Context Protocol (MCP) Servers
+If you are building an MCP server for Claude Desktop, you can trace all tools being called by running your server through the agentautopsy proxy:
+
+```bash
+agentautopsy mcp python my_mcp_server.py
+```
+
+The Web UI (`agentautopsy ui`) will elegantly parse and highlight all `mcp_initialize`, `mcp_tool_call` and `mcp_response` JSON payloads in your trace timeline.
 
 ## Works with
 
@@ -266,8 +275,8 @@ MIT
 
 - [ ] VS Code extension
 - [x] GitHub Actions integration  
-- [ ] Multi-agent tracing
-- [ ] Auto-fix applier
+- [x] Multi-agent tracing
+- [x] Auto-fix applier
 - [x] LangChain support
 - [x] LangGraph support
 - [x] CrewAI support
@@ -275,3 +284,4 @@ MIT
 - [x] Web UI
 - [x] Prompt diffing
 - [x] Divergence detection
+- [x] MCP Proxy Interceptor

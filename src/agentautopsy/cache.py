@@ -2,7 +2,6 @@
 
 import re
 import uuid
-from typing import Any
 
 from sqlite_utils import Database
 
@@ -43,6 +42,7 @@ def store_fix(
     verified: bool = True,
 ) -> str:
     import datetime
+
     fix_id = str(uuid.uuid4())
     db["fix_cache"].insert(
         {
@@ -69,9 +69,12 @@ def lookup_fix(
 ) -> str | None:
     if not db["fix_cache"].exists():
         return None
-        
+
     import datetime
-    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ttl_days)).isoformat()
+
+    cutoff = (
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ttl_days)
+    ).isoformat()
     try:
         db.execute("DELETE FROM fix_cache WHERE created_at < ?", [cutoff])
     except Exception:
@@ -117,8 +120,18 @@ if __name__ == "__main__":
     db = get_db()
     create_tables(db)
     setup_cache(db)
-    store_fix(db, "TimeoutError", "request timed out after 30s calling external api", "Add timeout=60 and retry logic")
-    store_fix(db, "AuthenticationError", "invalid api key provided", "Check OPENAI_API_KEY environment variable")
+    store_fix(
+        db,
+        "TimeoutError",
+        "request timed out after 30s calling external api",
+        "Add timeout=60 and retry logic",
+    )
+    store_fix(
+        db,
+        "AuthenticationError",
+        "invalid api key provided",
+        "Check OPENAI_API_KEY environment variable",
+    )
     result = lookup_fix(db, "TimeoutError", "timed out calling api")
     print(f"Cache hit: {result}")
     miss = lookup_fix(db, "TimeoutError", "memory allocation failed")

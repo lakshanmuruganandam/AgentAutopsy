@@ -26,7 +26,9 @@ current_causality_id: contextvars.ContextVar[str | None] = contextvars.ContextVa
 
 def get_db() -> Database:
     # Enforce WAL mode and extended timeouts for massive swarm concurrency
-    conn = sqlite3.connect(Path.cwd() / "agentautopsy.db", timeout=20.0, check_same_thread=False)
+    conn = sqlite3.connect(
+        Path.cwd() / "agentautopsy.db", timeout=20.0, check_same_thread=False
+    )
     db = Database(conn)
     db.execute("PRAGMA journal_mode=WAL;")
     db.execute("PRAGMA synchronous=NORMAL;")
@@ -167,7 +169,10 @@ def mark_run_completed(db: Database, run_id: str) -> None:
 
 def prune_old_runs(db: Database, days: int = 7) -> int:
     import datetime
-    threshold = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+
+    threshold = (
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    ).isoformat()
     old_runs = [
         r["id"]
         for r in db["runs"].rows_where(

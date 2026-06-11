@@ -32,8 +32,7 @@ def detect_failure(run_id: str, db: Database) -> dict[str, Any]:
         return {
             "failed": True,
             "run_id": run_id,
-            "error_type": payload.get("exception_type")
-            or payload.get("error_type"),
+            "error_type": payload.get("exception_type") or payload.get("error_type"),
             "message": payload.get("message"),
             "failure_event_id": row["id"],
             "failure_event_type": failure_type,
@@ -84,7 +83,12 @@ if __name__ == "__main__":
     create_tables(db)
     run_id = insert_run(db)
     insert_event(db, run_id, "llm_call", {"model": "gpt-4", "messages": []})
-    insert_event(db, run_id, "error", {"error_type": "TimeoutError", "message": "request timed out"})
+    insert_event(
+        db,
+        run_id,
+        "error",
+        {"error_type": "TimeoutError", "message": "request timed out"},
+    )
     result = detect_failure(run_id, db)
     print(f"Failed: {result['failed']}")
     print(f"Error: {result['error_type']}: {result['message']}")

@@ -65,10 +65,17 @@ if __name__ == "__main__":
     db = get_db()
     create_tables(db)
     run_id = insert_run(db)
-    fake_response = {"id": "chatcmpl-123", "choices": [{"message": {"content": "hello"}}]}
+    fake_response = {
+        "id": "chatcmpl-123",
+        "choices": [{"message": {"content": "hello"}}],
+    }
     insert_event(db, run_id, "llm_call", {"model": "gpt-4", "messages": []})
-    insert_event(db, run_id, "llm_response", {}, cassette=json.dumps(fake_response).encode())
-    insert_event(db, run_id, "error", {"error_type": "TimeoutError", "message": "timed out"})
+    insert_event(
+        db, run_id, "llm_response", {}, cassette=json.dumps(fake_response).encode()
+    )
+    insert_event(
+        db, run_id, "error", {"error_type": "TimeoutError", "message": "timed out"}
+    )
     result = replay(run_id, db, "Add timeout=60 to the API call")
     print(f"Verified: {result['verified']}")
     print(f"Events replayed: {result['events_replayed']}")

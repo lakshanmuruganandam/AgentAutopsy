@@ -132,7 +132,9 @@ def build_agent_chains(
         if parent_id:
             children_by_parent.setdefault(parent_id, []).append(run)
 
-    def walk_chain(run: dict[str, Any], depth: int) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    def walk_chain(
+        run: dict[str, Any], depth: int
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
         summary = runs_data.get(run["id"], {}).get("summary", {})
         nodes = [
             {
@@ -1062,6 +1064,12 @@ def _build_html(
     }}
     .event.llm_call {{ border-left-color: var(--cyan); }}
     .event.llm_call .type {{ color: var(--cyan); }}
+    .event.mcp_tool_call {{ border-left-color: #d946ef; }}
+    .event.mcp_tool_call .type {{ color: #d946ef; }}
+    .event.mcp_response {{ border-left-color: var(--green); }}
+    .event.mcp_response .type {{ color: var(--green); }}
+    .event.mcp_initialize {{ border-left-color: #eab308; }}
+    .event.mcp_initialize .type {{ color: #eab308; }}
     .event.http_request {{ border-left-color: var(--yellow); }}
     .event.http_request .type {{ color: var(--yellow); }}
     .event.http_response {{ border-left-color: var(--green); }}
@@ -2176,6 +2184,29 @@ def _build_html(
       }}
     }}
 
+    function buildMcpViewer(ev) {{
+      let html = '<div class="prompt-viewer">';
+      html += '<div class="inspect-label">MCP Details</div>';
+      if (ev.type === "mcp_tool_call") {{
+        const payload = ev.payload || {{}};
+        const toolName = payload.tool_name || "Unknown Tool";
+        const args = payload.arguments || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">Tool Call: ' + escapeHtml(toolName) + '</div>';
+        html += '<pre class="prompt-block system">' + syntaxHighlight(JSON.stringify(args, null, 2)) + '</pre>';
+      }} else if (ev.type === "mcp_response") {{
+        const payload = ev.payload || {{}};
+        const result = payload.result || payload.error || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">Tool Response</div>';
+        html += '<pre class="prompt-block user">' + syntaxHighlight(JSON.stringify(result, null, 2)) + '</pre>';
+      }} else if (ev.type === "mcp_initialize") {{
+        const payload = ev.payload || {{}};
+        html += '<div style="font-weight: 600; margin-bottom: 8px;">MCP Handshake</div>';
+        html += '<pre class="prompt-block system">' + syntaxHighlight(JSON.stringify(payload, null, 2)) + '</pre>';
+      }}
+      html += '</div>';
+      return html;
+    }}
+
     function renderRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -2221,6 +2252,9 @@ def _build_html(
         html += '<div class="event-body" id="expand-' + escapeHtml(eventId) + '">';
         if (ev.type === "llm_call") {{
           html += buildPromptViewer(ev, events, idx);
+        }}
+        if (ev.type === "mcp_tool_call" || ev.type === "mcp_response" || ev.type === "mcp_initialize") {{
+          html += buildMcpViewer(ev);
         }}
         html += '<div class="inspect-label">Payload</div>';
         html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';
@@ -2313,7 +2347,9 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
-        self._send_bytes(status, "application/json", json.dumps(payload).encode("utf-8"))
+        self._send_bytes(
+            status, "application/json", json.dumps(payload).encode("utf-8")
+        )
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
@@ -2326,6 +2362,7 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/topology":
             from pathlib import Path
+
             try:
                 with open(Path(__file__).parent / "topology.html", "rb") as f:
                     self._send_bytes(200, "text/html; charset=utf-8", f.read())
@@ -2334,14 +2371,29 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/topology":
             from agentautopsy.db import get_db
+
             db = get_db()
             nodes = []
             links = []
             if db["runs"].exists():
-                for row in db.query("SELECT * FROM runs ORDER BY start_time DESC LIMIT 2000"):
-                    nodes.append({"id": row["id"], "group": row.get("agent_name", "agent"), "causality": row.get("causality_thread_id")})
+                for row in db.query(
+                    "SELECT * FROM runs ORDER BY start_time DESC LIMIT 2000"
+                ):
+                    nodes.append(
+                        {
+                            "id": row["id"],
+                            "group": row.get("agent_name", "agent"),
+                            "causality": row.get("causality_thread_id"),
+                        }
+                    )
                     if row.get("parent_run_id"):
-                        links.append({"source": row["parent_run_id"], "target": row["id"], "poisoned": row.get("status") == "failed"})
+                        links.append(
+                            {
+                                "source": row["parent_run_id"],
+                                "target": row["id"],
+                                "poisoned": row.get("status") == "failed",
+                            }
+                        )
             self._send_json(200, {"nodes": nodes, "links": links})
             return
         self._send_json(404, {"error": "Not found"})
@@ -2385,8 +2437,29 @@ def start_ui() -> Path:
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)
     webbrowser.open(f"{FIX_API_BASE}/")
-    print(f"AgentAutopsy UI running at {FIX_API_BASE} (Ctrl+C to stop)")
-    print(f"Report saved to {output_path}")
+    import time
+
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[1;38;5;82m⚡ AGENTAUTOPSY \033[0m\033[38;5;244m— Web Dashboard\033[0m")
+    time.sleep(0.1)
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[38;5;244m▶ Status: \033[1;37mRunning Locally\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ URL:    \033[38;5;82m{FIX_API_BASE}/\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Report: \033[38;5;141m{output_path}\033[0m")
+    time.sleep(0.1)
+    print(
+        "\033[38;5;39m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[38;5;240m(Press Ctrl+C to stop the server)\033[0m\n")
     try:
         while True:
             threading.Event().wait(3600)

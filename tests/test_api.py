@@ -66,13 +66,16 @@ class TestAnalyzeHandler(unittest.TestCase):
             },
         ):
             server = ThreadingHTTPServer(("127.0.0.1", 0), _AnalyzeRequestHandler)
-            host, port = server.server_address
+            host, port = server.server_address[:2]
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
                 conn = HTTPConnection(host, port, timeout=5)
                 payload = json.dumps(
-                    {"task": "debug this agent failure", "logs": "TimeoutError: timed out"}
+                    {
+                        "task": "debug this agent failure",
+                        "logs": "TimeoutError: timed out",
+                    }
                 )
                 conn.request(
                     "POST",

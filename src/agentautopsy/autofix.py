@@ -76,9 +76,21 @@ def _list_project_files(root: Path, limit: int = 40) -> list[str]:
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
-        if any(part in {".git", "__pycache__", ".venv", "node_modules"} for part in path.parts):
+        if any(
+            part in {".git", "__pycache__", ".venv", "node_modules"}
+            for part in path.parts
+        ):
             continue
-        if path.suffix not in {".py", ".ts", ".js", ".tsx", ".jsx", ".json", ".yaml", ".yml"}:
+        if path.suffix not in {
+            ".py",
+            ".ts",
+            ".js",
+            ".tsx",
+            ".jsx",
+            ".json",
+            ".yaml",
+            ".yml",
+        }:
             continue
         files.append(str(path.relative_to(root)).replace("\\", "/"))
         if len(files) >= limit:
@@ -101,9 +113,7 @@ def _identify_fix_location(context: dict[str, Any]) -> dict[str, Any]:
 
     client = _get_anthropic_client()
     if client is None:
-        raise ValueError(
-            "ANTHROPIC_API_KEY is not set — cannot identify fix location"
-        )
+        raise ValueError("ANTHROPIC_API_KEY is not set — cannot identify fix location")
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=800,

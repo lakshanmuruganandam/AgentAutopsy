@@ -6,9 +6,9 @@ import atexit
 
 from agentautopsy.db import create_tables, get_db, insert_run
 from agentautopsy.interceptor import (
-    start_interceptor,
     start_anthropic_interceptor,
     start_http_interceptor,
+    start_interceptor,
 )
 from agentautopsy.mcp_handler import MCPAutopsy
 from agentautopsy.reporter import print_report
@@ -93,35 +93,92 @@ def watch(
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
+
+    import sys
+
+    _original_excepthook = sys.excepthook
+
+    def _autopsy_excepthook(exc_type, exc_value, exc_traceback):
+        from agentautopsy.db import insert_event
+
+        insert_event(
+            db,
+            run_id,
+            "error",
+            {"error_type": exc_type.__name__, "message": str(exc_value)},
+        )
+        _original_excepthook(exc_type, exc_value, exc_traceback)
+
+    sys.excepthook = _autopsy_excepthook
+    import time
+
     label = agent_name or "agent"
-    print(f"[AgentAutopsy] watching — {label} — run {run_id}")
+    print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
+    time.sleep(0.1)
+    print("\033[1;38;5;82m⚡ [AgentAutopsy] Engine Initialized\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Target:  \033[1;37m{label}\033[0m")
+    time.sleep(0.1)
+    print(f"\033[38;5;244m▶ Session: \033[38;5;141m{run_id}\033[0m")
+    time.sleep(0.1)
     if parent_run_id:
-        print(f"[AgentAutopsy] parent run {parent_run_id}")
+        print(f"\033[38;5;244m▶ Parent:  \033[38;5;141m{parent_run_id}\033[0m")
+        time.sleep(0.1)
+    print(
+        "\033[38;5;244m▶ Status:  \033[38;5;11mIntercepting LLM & HTTP Traffic in real-time...\033[0m"
+    )
+    time.sleep(0.1)
+    print("\033[38;5;39m" + "━" * 60 + "\033[0m\n")
 
     def on_exit():
+        from agentautopsy.analyzer import analyze
+        from agentautopsy.cache import lookup_fix, store_fix
         from agentautopsy.detector import detect_failure, take_snapshot
         from agentautopsy.pruner import prune
-        from agentautopsy.analyzer import analyze
         from agentautopsy.replay import replay
-        from agentautopsy.cache import lookup_fix, store_fix
 
         result = detect_failure(run_id, db)
         if not result["failed"]:
             from agentautopsy.db import mark_run_completed
 
             mark_run_completed(db, run_id)
-            print(f"[AgentAutopsy] run completed cleanly — {run_id}")
+            print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
+            time.sleep(0.1)
+            print("\033[1;38;5;82m✅ [AgentAutopsy] Analysis Complete\033[0m")
+            time.sleep(0.1)
+            print(
+                f"\033[38;5;244m▶ Run \033[38;5;141m{run_id}\033[38;5;244m executed flawlessly.\033[0m"
+            )
+            time.sleep(0.1)
+            print(
+                "\033[38;5;244m▶ Type \033[1;37magentautopsy ui\033[38;5;244m in your terminal to view the trace graph.\033[0m"
+            )
+            time.sleep(0.1)
+            print("\033[38;5;39m" + "━" * 60 + "\033[0m\n")
             return
 
         from agentautopsy.db import mark_run_failed
 
         mark_run_failed(db, run_id)
 
-        print(f"\n[AgentAutopsy] failure detected: {result['error_type']}: {result['message']}")
+        time.sleep(0.1)
+        print("\n\033[1;38;5;196m❌ [AgentAutopsy] Critical Failure Intercepted\033[0m")
+        time.sleep(0.1)
+        print(f"\033[38;5;244m▶ Error: \033[1;38;5;196m{result['error_type']}\033[0m")
+        time.sleep(0.1)
+        print(f"\033[38;5;244m▶ Trace: \033[38;5;196m{result['message']}\033[0m")
 
         cached = lookup_fix(db, result["error_type"], result["message"])
         if cached:
-            print(f"[AgentAutopsy] cache hit — fix found instantly:")
+            time.sleep(0.8)
+            print(
+                "\n\033[38;5;39m▶ \033[1;38;5;141mAI Root Cause Analysis Triggered...\033[0m"
+            )
+            time.sleep(0.8)
+            print(
+                "\033[38;5;39m▶ \033[1;38;5;82mCache Hit — Fix Found Instantly\033[0m\n"
+            )
+            time.sleep(0.1)
             print(cached)
             return
 
@@ -134,15 +191,19 @@ def watch(
 
             replay_result = replay(run_id, db, analysis)
             if replay_result["verified"]:
-                print(f"\n[AgentAutopsy] fix verified ✓")
+                print("\n[AgentAutopsy] fix verified ✓")
                 print("✓ Replay passed")
                 print("✓ Failure resolved")
-                store_fix(db, result["error_type"], result["message"], analysis, verified=True)
+                store_fix(
+                    db, result["error_type"], result["message"], analysis, verified=True
+                )
             else:
-                print(f"\n[AgentAutopsy] fix not verified — review manually")
+                print("\n[AgentAutopsy] fix not verified — review manually")
         except Exception as e:
             if "authentication" in str(e).lower() or "api_key" in str(e).lower():
-                print("\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY).")
+                print(
+                    "\n[AgentAutopsy] Auto-fix bypassed: LLM authentication failed (check ANTHROPIC_API_KEY)."
+                )
             else:
                 print(f"\n[AgentAutopsy] Auto-fix failed: {e}")
 

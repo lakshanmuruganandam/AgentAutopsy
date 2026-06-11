@@ -8,14 +8,20 @@ _FAKE_SNAPSHOT = [
     {
         "id": "1",
         "type": "llm_call",
-        "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data"}]},
+        "payload": {
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": "fetch data"}],
+        },
         "cassette_size": 0,
         "timestamp": "2024-01-01T00:00:01",
     },
     {
         "id": "2",
         "type": "error",
-        "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"},
+        "payload": {
+            "error_type": "TimeoutError",
+            "message": "request timed out after 30s",
+        },
         "cassette_size": 0,
         "timestamp": "2024-01-01T00:00:02",
     },
@@ -54,7 +60,9 @@ class TestAnalyzer(unittest.TestCase):
     def test_analyze_with_client_returns_analysis(self, mock_get_client):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.content = [MagicMock(text="ROOT CAUSE: timeout\nFIX: Increase timeout to 60s.")]
+        mock_response.content = [
+            MagicMock(text="ROOT CAUSE: timeout\nFIX: Increase timeout to 60s.")
+        ]
         mock_client.messages.create.return_value = mock_response
         mock_get_client.return_value = mock_client
 

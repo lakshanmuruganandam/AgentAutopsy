@@ -68,7 +68,11 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
             self.db,
             self.run_id,
             "langgraph_node_start",
-            {"node": node, "input": _safe_payload(input_data), "framework": "langgraph"},
+            {
+                "node": node,
+                "input": _safe_payload(input_data),
+                "framework": "langgraph",
+            },
         )
 
     def on_graph_node_end(self, node: str, output: Any = None) -> None:
@@ -100,13 +104,18 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
     def on_graph_error(self, error: BaseException, node: str | None = None) -> None:
         cassette_data = None
         if self._latest_memory_snapshot is not None:
-            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode("utf-8")
+            raw_bytes = json.dumps(self._latest_memory_snapshot, default=str).encode(
+                "utf-8"
+            )
             if len(raw_bytes) > 50000:
-                truncated = {"_truncated": True, "error": "Payload exceeded 50KB limit."}
+                truncated = {
+                    "_truncated": True,
+                    "error": "Payload exceeded 50KB limit.",
+                }
                 cassette_data = json.dumps(truncated).encode("utf-8")
             else:
                 cassette_data = raw_bytes
-        
+
         insert_event(
             self.db,
             self.run_id,
@@ -175,7 +184,9 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
         model = "unknown"
         model_kwargs = serialized.get("kwargs")
         if isinstance(model_kwargs, dict):
-            model = str(model_kwargs.get("model") or model_kwargs.get("model_name") or model)
+            model = str(
+                model_kwargs.get("model") or model_kwargs.get("model_name") or model
+            )
         insert_event(
             self.db,
             self.run_id,

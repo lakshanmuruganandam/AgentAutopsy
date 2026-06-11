@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
-import difflib
 from statistics import mean
 from typing import Any
 
@@ -70,18 +70,21 @@ def _parse_event_payload(raw: Any) -> dict[str, Any]:
 def _load_run_events(db: Any, run_id: str) -> list[dict[str, Any]]:
     if not db["events"].exists() or not db["runs"].exists():
         return []
-        
+
     run = None
     try:
         run = db["runs"].get(run_id)
     except Exception:
         pass
-        
+
     causality_id = run.get("causality_thread_id") if run else run_id
     if not causality_id:
         causality_id = run_id
-        
-    thread_runs = [r["id"] for r in db["runs"].rows_where("causality_thread_id = ?", [causality_id])]
+
+    thread_runs = [
+        r["id"]
+        for r in db["runs"].rows_where("causality_thread_id = ?", [causality_id])
+    ]
     if not thread_runs:
         thread_runs = [run_id]
 
@@ -98,9 +101,9 @@ def _load_run_events(db: Any, run_id: str) -> list[dict[str, Any]]:
                 "payload": _parse_event_payload(row.get("payload")),
                 "token_input": row.get("token_input"),
                 "token_output": row.get("token_output"),
-                "cassette_size": len(row["cassette"])
-                if row.get("cassette") is not None
-                else 0,
+                "cassette_size": (
+                    len(row["cassette"]) if row.get("cassette") is not None else 0
+                ),
             }
         )
     return events
@@ -133,9 +136,7 @@ def _run_profile(events: list[dict[str, Any]]) -> dict[str, Any]:
             elif event.get("cassette_size"):
                 response_lengths.append(int(event["cassette_size"]))
 
-    avg_response_length = (
-        int(round(mean(response_lengths))) if response_lengths else 0
-    )
+    avg_response_length = int(round(mean(response_lengths))) if response_lengths else 0
     return {
         "tool_sequence": tuple(tool_sequence),
         "tool_sequence_label": " → ".join(tool_sequence) if tool_sequence else "(none)",
@@ -146,7 +147,9 @@ def _run_profile(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _most_common_tool_sequence(profiles: list[dict[str, Any]]) -> tuple[str, ...] | None:
+def _most_common_tool_sequence(
+    profiles: list[dict[str, Any]],
+) -> tuple[str, ...] | None:
     if not profiles:
         return None
     counts: dict[tuple[str, ...], int] = {}
@@ -181,11 +184,10 @@ def _compute_divergences(db: Any, run_id: str) -> list[dict[str, str]]:
         return divergences
 
     baseline_sequence = _most_common_tool_sequence(successful_profiles)
-    if (
-        baseline_sequence is not None
-        and current["tool_sequence"] != baseline_sequence
-    ):
-        baseline_label = " → ".join(baseline_sequence) if baseline_sequence else "(none)"
+    if baseline_sequence is not None and current["tool_sequence"] != baseline_sequence:
+        baseline_label = (
+            " → ".join(baseline_sequence) if baseline_sequence else "(none)"
+        )
         divergences.append(
             {
                 "what_changed": "Tool call sequence differs from usual successful runs",
@@ -275,7 +277,9 @@ def _extract_prompt_lines(events: list[dict[str, Any]]) -> list[str]:
             role = str(message.get("role", "unknown"))
             content = _message_content(message.get("content"))
             if content:
-                lines.extend(f"[{role}] {part}" for part in content.splitlines() or [content])
+                lines.extend(
+                    f"[{role}] {part}" for part in content.splitlines() or [content]
+                )
     return lines
 
 
@@ -375,10 +379,7 @@ def _get_anthropic_client() -> anthropic.Anthropic | None:
 
 
 def analyze(pruned_snapshot: list[dict[str, Any]], failure: dict[str, Any]) -> str:
-    lines = [
-        f"Error: {failure['error_type']}: {failure['message']}",
-        "Trace:"
-    ]
+    lines = [f"Error: {failure['error_type']}: {failure['message']}", "Trace:"]
     for e in pruned_snapshot:
         lines.append(f"- [{e['type']}] {e['payload']}")
     user_message = "\n".join(lines)
@@ -401,7 +402,7 @@ def analyze(pruned_snapshot: list[dict[str, Any]], failure: dict[str, Any]) -> s
                 "ROOT CAUSE: <one sentence>\n"
                 "FIX: <concrete patch or instruction>"
             ),
-            messages=[{"role": "user", "content": user_message}]
+            messages=[{"role": "user", "content": user_message}],
         )
     except Exception as exc:
         return (
@@ -429,15 +430,33 @@ def analyze(pruned_snapshot: list[dict[str, Any]], failure: dict[str, Any]) -> s
 
 if __name__ == "__main__":
     fake_snapshot = [
-        {"id": "1", "type": "llm_call", "payload": {"model": "gpt-4", "messages": [{"role": "user", "content": "fetch data from api"}]}, "cassette_size": 0, "timestamp": "2024-01-01T00:00:01"},
-        {"id": "2", "type": "error", "payload": {"error_type": "TimeoutError", "message": "request timed out after 30s"}, "cassette_size": 0, "timestamp": "2024-01-01T00:00:02"},
+        {
+            "id": "1",
+            "type": "llm_call",
+            "payload": {
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "fetch data from api"}],
+            },
+            "cassette_size": 0,
+            "timestamp": "2024-01-01T00:00:01",
+        },
+        {
+            "id": "2",
+            "type": "error",
+            "payload": {
+                "error_type": "TimeoutError",
+                "message": "request timed out after 30s",
+            },
+            "cassette_size": 0,
+            "timestamp": "2024-01-01T00:00:02",
+        },
     ]
     fake_failure = {
         "failed": True,
         "error_type": "TimeoutError",
         "message": "request timed out after 30s",
         "run_id": "test-123",
-        "failure_event_id": "2"
+        "failure_event_id": "2",
     }
     result = analyze(fake_snapshot, fake_failure)
     print(result)
