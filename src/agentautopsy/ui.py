@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from agentautopsy.analyzer import detect_divergence, diff_prompts
 from agentautopsy.db import get_db
+from agentautopsy.dvr_replay import DVRReplay, load_dvr_ui_data
 from agentautopsy.schema_drift import load_schema_drift_events
 from agentautopsy.interceptor import _http_display_path
 
@@ -349,11 +350,13 @@ def _build_html(
     runs_data: dict[str, dict[str, Any]],
     agent_chains: list[dict[str, Any]],
     schema_drift_events: list[dict[str, Any]] | None = None,
+    dvr_data: dict[str, Any] | None = None,
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
     agent_chains_json = json.dumps(agent_chains)
     schema_drift_json = json.dumps(schema_drift_events or [])
+    dvr_json = json.dumps(dvr_data or {"runs": [], "timelines": {}, "sessions": []})
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
     fix_api_base_json = json.dumps(FIX_API_BASE)
 
@@ -1126,6 +1129,48 @@ def _build_html(
       font-size: 0.78rem;
       color: var(--muted);
     }}
+    .dvr-step-list {{ list-style: none; padding: 0; margin: 0; }}
+    .dvr-step {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }}
+    .dvr-step.active {{ background: rgba(34, 211, 238, 0.08); }}
+    .dvr-scrubber {{
+      width: 100%;
+      margin: 0.75rem 0 1rem;
+    }}
+    .dvr-diff-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }}
+    .dvr-diff-panel {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem;
+      min-height: 180px;
+    }}
+    .dvr-diff-panel h4 {{ margin: 0 0 0.5rem; font-size: 0.9rem; }}
+    .dvr-fork-btn {{
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--purple);
+      border: 1px solid rgba(167, 139, 250, 0.35);
+      border-radius: 6px;
+      padding: 0.2rem 0.45rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }}
+    .dvr-fork-btn:hover {{ background: rgba(167, 139, 250, 0.28); }}
+    @media (max-width: 900px) {{
+      .dvr-diff-grid {{ grid-template-columns: 1fr; }}
+    }}
     .event.http_error .type {{ color: var(--red); }}
     .event.llm_response {{ border-left-color: var(--purple); }}
     .event.llm_response .type {{ color: var(--purple); }}
@@ -1399,11 +1444,13 @@ def _build_html(
         <button class="sidebar-tab active" id="tab-runs" type="button">Runs</button>
         <button class="sidebar-tab" id="tab-graph" type="button">Agent Graph</button>
         <button class="sidebar-tab" id="tab-drift" type="button">Schema Drift</button>
+        <button class="sidebar-tab" id="tab-dvr" type="button">Replay</button>
       </div>
       <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
       <div id="chain-list" style="display:none"></div>
       <div id="drift-list" style="display:none"></div>
+      <div id="dvr-run-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
@@ -1414,6 +1461,7 @@ def _build_html(
     const runsData = {data_json};
     const agentChains = {agent_chains_json};
     const schemaDriftEvents = {schema_drift_json};
+    const dvrData = {dvr_json};
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -1426,11 +1474,15 @@ def _build_html(
     const tabRuns = document.getElementById("tab-runs");
     const tabGraph = document.getElementById("tab-graph");
     const tabDrift = document.getElementById("tab-drift");
+    const tabDvr = document.getElementById("tab-dvr");
     const driftList = document.getElementById("drift-list");
+    const dvrRunList = document.getElementById("dvr-run-list");
     const driftBanner = document.getElementById("drift-banner");
     const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
     let activeView = "runs";
+    let selectedDvrRunId = dvrData.runs.length ? dvrData.runs[0].run_id : null;
+    let selectedDvrStep = 1;
     let selectedChainIndex = 0;
     const chatHistory = {{}};
     let chatLoadingRunId = null;
@@ -1658,16 +1710,143 @@ def _build_html(
       tabRuns.classList.toggle("active", view === "runs");
       tabGraph.classList.toggle("active", view === "graph");
       tabDrift.classList.toggle("active", view === "drift");
+      tabDvr.classList.toggle("active", view === "dvr");
       runList.style.display = view === "runs" ? "flex" : "none";
       chainList.style.display = view === "graph" ? "block" : "none";
       driftList.style.display = view === "drift" ? "block" : "none";
+      dvrRunList.style.display = view === "dvr" ? "block" : "none";
       if (view === "runs") {{
         sidebarHead.textContent = "Runs";
       }} else if (view === "graph") {{
         sidebarHead.textContent = "Agent Chains";
-      }} else {{
+      }} else if (view === "drift") {{
         sidebarHead.textContent = "Schema Drift";
+      }} else {{
+        sidebarHead.textContent = "DVR Runs";
       }}
+    }}
+
+    async function dvrFork(runId, step) {{
+      const newInput = window.prompt("Optional new input for fork at step " + step + ":", "");
+      const body = {{ run_id: runId, at_step: step }};
+      if (newInput !== null && newInput !== "") {{
+        body.new_input = newInput;
+      }}
+      const response = await fetch(fixApiBase + "/api/dvr/fork", {{
+        method: "POST",
+        headers: {{ "Content-Type": "application/json" }},
+        body: JSON.stringify(body),
+      }});
+      const payload = await response.json();
+      if (!response.ok) {{
+        alert(payload.error || "Fork failed");
+        return;
+      }}
+      alert("Fork created: " + payload.replay_run_id);
+      renderDvrReplayView();
+    }}
+
+    async function dvrReplayFromStep(runId, step) {{
+      const response = await fetch(fixApiBase + "/api/dvr/replay", {{
+        method: "POST",
+        headers: {{ "Content-Type": "application/json" }},
+        body: JSON.stringify({{ run_id: runId, from_step: step }}),
+      }});
+      const payload = await response.json();
+      if (!response.ok) {{
+        alert(payload.error || "Replay failed");
+        return;
+      }}
+      const diffEl = document.getElementById("dvr-diff-output");
+      if (diffEl) {{
+        diffEl.textContent = JSON.stringify(payload.diff || payload, null, 2);
+      }}
+    }}
+
+    function renderDvrReplayView() {{
+      if (!dvrData.runs.length) {{
+        detail.innerHTML = '<div class="empty">No DVR-recorded runs yet. Start with agentautopsy.watch().</div>';
+        return;
+      }}
+      if (!selectedDvrRunId) {{
+        selectedDvrRunId = dvrData.runs[0].run_id;
+      }}
+      const run = dvrData.runs.find((item) => item.run_id === selectedDvrRunId) || dvrData.runs[0];
+      const timeline = dvrData.timelines[run.run_id] || [];
+      if (!timeline.length) {{
+        selectedDvrStep = 1;
+      }} else if (selectedDvrStep > timeline.length) {{
+        selectedDvrStep = timeline.length;
+      }}
+      const currentStep = timeline[selectedDvrStep - 1] || null;
+      let html = '<div class="run-body"><div class="run-main">';
+      html += '<div class="run-header"><h2>DVR Replay</h2>';
+      html += '<p class="run-sub"><code>' + escapeHtml(run.run_id) + '</code> · ' + timeline.length + ' steps · ' + escapeHtml(run.status || "") + '</p></div>';
+      html += '<input class="dvr-scrubber" id="dvr-scrubber" type="range" min="1" max="' + Math.max(timeline.length, 1) + '" value="' + selectedDvrStep + '" />';
+      html += '<div class="run-actions">';
+      html += '<button class="replay-btn" type="button" id="dvr-replay-btn">Replay from step ' + selectedDvrStep + '</button>';
+      html += '<button class="share-btn" type="button" id="dvr-fork-current-btn">Fork at step ' + selectedDvrStep + '</button>';
+      html += '</div>';
+      html += '<ul class="dvr-step-list">';
+      timeline.forEach((step) => {{
+        html += '<li class="dvr-step' + (step.step === selectedDvrStep ? " active" : "") + '">';
+        html += '<span>#' + step.step + ' [' + escapeHtml(step.type) + '] ' + escapeHtml(step.summary || "") + '</span>';
+        html += '<button class="dvr-fork-btn" type="button" data-run-id="' + escapeHtml(run.run_id) + '" data-step="' + step.step + '">Fork</button>';
+        html += '</li>';
+      }});
+      html += '</ul>';
+      html += '<div class="dvr-diff-grid">';
+      html += '<div class="dvr-diff-panel"><h4>Original (step ' + selectedDvrStep + ')</h4><pre>' + escapeHtml(currentStep ? JSON.stringify(currentStep.payload, null, 2) : "(none)") + '</pre></div>';
+      html += '<div class="dvr-diff-panel"><h4>Replay diff</h4><pre id="dvr-diff-output">Select Replay to compare original vs replayed output.</pre></div>';
+      html += '</div></div></div>';
+      detail.innerHTML = html;
+
+      const scrubber = document.getElementById("dvr-scrubber");
+      if (scrubber) {{
+        scrubber.addEventListener("input", () => {{
+          selectedDvrStep = Number(scrubber.value);
+          renderDvrReplayView();
+        }});
+      }}
+      const replayBtn = document.getElementById("dvr-replay-btn");
+      if (replayBtn) {{
+        replayBtn.addEventListener("click", () => dvrReplayFromStep(run.run_id, selectedDvrStep));
+      }}
+      const forkBtn = document.getElementById("dvr-fork-current-btn");
+      if (forkBtn) {{
+        forkBtn.addEventListener("click", () => dvrFork(run.run_id, selectedDvrStep));
+      }}
+      document.querySelectorAll(".dvr-fork-btn").forEach((button) => {{
+        button.addEventListener("click", (event) => {{
+          event.stopPropagation();
+          dvrFork(button.dataset.runId, Number(button.dataset.step));
+        }});
+      }});
+    }}
+
+    function renderDvrRunList() {{
+      dvrRunList.innerHTML = "";
+      if (!dvrData.runs.length) {{
+        dvrRunList.innerHTML = '<div class="empty" style="padding:1rem">No DVR runs yet.</div>';
+        return;
+      }}
+      dvrData.runs.forEach((run, index) => {{
+        const btn = document.createElement("button");
+        btn.className = "run-item" + ((run.run_id === selectedDvrRunId || (!selectedDvrRunId && index === 0)) ? " active" : "");
+        btn.type = "button";
+        btn.innerHTML =
+          '<span class="status-dot ' + statusDotClass({{ status: run.status, has_error: run.status === "failed" }}) + '"></span>' +
+          '<span class="run-copy"><div class="run-id">' + escapeHtml(run.agent_name || "agent") + '</div>' +
+          '<div class="run-meta">' + escapeHtml(run.run_id.slice(0, 12)) + "... · " + run.step_count + " steps</div></span>";
+        btn.addEventListener("click", () => {{
+          selectedDvrRunId = run.run_id;
+          selectedDvrStep = 1;
+          document.querySelectorAll("#dvr-run-list .run-item").forEach((el) => el.classList.remove("active"));
+          btn.classList.add("active");
+          renderDvrReplayView();
+        }});
+        dvrRunList.appendChild(btn);
+      }});
     }}
 
     function renderSchemaDriftView() {{
@@ -2417,6 +2596,11 @@ def _build_html(
         setSidebarView("drift");
         renderSchemaDriftView();
       }});
+      tabDvr.addEventListener("click", () => {{
+        setSidebarView("dvr");
+        renderDvrRunList();
+        renderDvrReplayView();
+      }});
       renderDriftBanner();
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
@@ -2509,10 +2693,65 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
                         )
             self._send_json(200, {"nodes": nodes, "links": links})
             return
+        if path == "/api/dvr/runs":
+            from agentautopsy.db import get_db as _get_db
+
+            self._send_json(200, load_dvr_ui_data(_get_db()))
+            return
+        if path.startswith("/api/dvr/timeline/"):
+            from agentautopsy.db import get_db as _get_db
+
+            run_id = path.removeprefix("/api/dvr/timeline/").strip("/")
+            dvr = DVRReplay(db=_get_db())
+            self._send_json(200, {"run_id": run_id, "timeline": dvr.load_timeline(run_id)})
+            return
         self._send_json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path in ("/api/dvr/replay", "/api/dvr/fork"):
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length) if content_length else b"{}"
+            try:
+                body = json.loads(raw_body.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send_json(400, {"error": "Invalid JSON body"})
+                return
+            if not isinstance(body, dict):
+                self._send_json(400, {"error": "JSON body must be an object"})
+                return
+
+            from agentautopsy.db import get_db as _get_db
+
+            dvr = DVRReplay(db=_get_db())
+            run_id = str(body.get("run_id") or "")
+            if not run_id:
+                self._send_json(400, {"error": "run_id is required"})
+                return
+            try:
+                if path == "/api/dvr/replay":
+                    from_step = int(body.get("from_step") or 1)
+                    result = dvr.replay_from_step(run_id, from_step)
+                else:
+                    at_step = int(body.get("at_step") or body.get("from_step") or 1)
+                    new_input = body.get("new_input")
+                    replay_run_id = dvr.fork_run(
+                        run_id,
+                        at_step,
+                        new_input=new_input,
+                    )
+                    result = {
+                        "source_run_id": run_id,
+                        "replay_run_id": replay_run_id,
+                        "from_step": at_step,
+                        "diff": dvr.diff_runs(run_id, replay_run_id),
+                    }
+            except ValueError as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, result)
+            return
+
         if not path.startswith("/api/fix/"):
             self._send_json(404, {"error": "Not found"})
             return
@@ -2546,7 +2785,8 @@ def start_ui() -> Path:
     runs, runs_data = _load_data(db)
     agent_chains = build_agent_chains(runs, runs_data)
     schema_drift_events = load_schema_drift_events(db)
-    html = _build_html(runs, runs_data, agent_chains, schema_drift_events)
+    dvr_data = load_dvr_ui_data(db)
+    html = _build_html(runs, runs_data, agent_chains, schema_drift_events, dvr_data)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)

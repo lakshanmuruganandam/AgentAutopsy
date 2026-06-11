@@ -16,6 +16,7 @@ Commands:
   runs              List all runs (id, start_time, status)
   agents            List multi-agent run chains
   replay <run_id>   Print the event report for a run
+  replay --run-id <id> --from-step <n>   DVR replay from a step
   share <run_id>    Export a run trace to a shareable JSON file
   fix <run_id>      Apply an automated fix for a failed run
   stats             Show fix cache statistics
@@ -103,6 +104,30 @@ def main() -> None:
         return
 
     if cmd == "replay":
+        if "--run-id" in argv or "--from-step" in argv:
+            from agentautopsy.dvr_replay import DVRReplay
+
+            run_id = None
+            from_step = 1
+            if "--run-id" in argv:
+                run_id = argv[argv.index("--run-id") + 1]
+            if "--from-step" in argv:
+                from_step = int(argv[argv.index("--from-step") + 1])
+            if not run_id:
+                print(
+                    "usage: agentautopsy replay --run-id <id> [--from-step <n>]",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            dvr = DVRReplay(db=db)
+            try:
+                result = dvr.replay_from_step(run_id, from_step)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                sys.exit(1)
+            print(json.dumps(result, indent=2, default=str))
+            return
+
         if len(argv) < 2:
             print("usage: agentautopsy replay <run_id>", file=sys.stderr)
             sys.exit(2)

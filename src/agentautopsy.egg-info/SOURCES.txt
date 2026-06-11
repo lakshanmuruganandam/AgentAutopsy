@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 src/agentautopsy/__init__.py
@@ -21,6 +22,7 @@ src/agentautopsy/mcp_interceptor.py
 src/agentautopsy/pruner.py
 src/agentautopsy/replay.py
 src/agentautopsy/reporter.py
+src/agentautopsy/schema_drift.py
 src/agentautopsy/share.py
 src/agentautopsy/ui.py
 src/agentautopsy.egg-info/PKG-INFO
@@ -39,4 +41,5 @@ tests/test_http_error.py
 tests/test_langgraph.py
 tests/test_mcp_handler.py
 tests/test_mcp_interceptor.py
+tests/test_schema_drift.py
 tests/test_smoke.py
