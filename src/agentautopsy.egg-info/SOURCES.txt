@@ -13,6 +13,7 @@ src/agentautopsy/cli.py
 src/agentautopsy/crewai_handler.py
 src/agentautopsy/db.py
 src/agentautopsy/detector.py
+src/agentautopsy/dvr_replay.py
 src/agentautopsy/github_pr.py
 src/agentautopsy/interceptor.py
 src/agentautopsy/langchain_handler.py
@@ -36,6 +37,7 @@ tests/test_api.py
 tests/test_autofix.py
 tests/test_crewai.py
 tests/test_day7.py
+tests/test_dvr_replay.py
 tests/test_full_pipeline.py
 tests/test_http_error.py
 tests/test_langgraph.py

@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from agentautopsy.db import create_tables, get_db, insert_event, insert_run, mark_run_failed
-from agentautopsy.schema_drift import SchemaDriftDetector, diff_schemas, get_active_detector
+from agentautopsy.schema_drift import SchemaDriftDetector, _coerce_dict, get_active_detector
 
 _mcp_context: dict[str, Any] = {}
 
@@ -50,7 +50,7 @@ def _tool_input_schema(tool: Any) -> dict[str, Any]:
         schema = tool.get("inputSchema") or tool.get("input_schema") or {}
     else:
         schema = getattr(tool, "inputSchema", None) or getattr(tool, "input_schema", None) or {}
-    return _safe_json(schema) if isinstance(schema, dict) else {}
+    return _coerce_dict(schema) if isinstance(schema, dict) else {}
 
 
 def _schema_properties(schema: dict[str, Any]) -> dict[str, Any]:
@@ -189,7 +189,7 @@ class MCPAutopsy:
 
     def register_tool_schema(self, tool_name: str, schema: dict[str, Any]) -> dict[str, Any] | None:
         """Store tool schema and return drift report if schema changed."""
-        schema = _safe_json(schema) if isinstance(schema, dict) else {}
+        schema = _coerce_dict(schema) if isinstance(schema, dict) else {}
         self._expected_schemas[tool_name] = schema
         if not schema:
             return None

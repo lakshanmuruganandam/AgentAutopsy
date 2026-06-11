@@ -27,6 +27,11 @@ def _safe_json(value: Any) -> Any:
         return str(value)
 
 
+def _coerce_dict(value: Any) -> dict[str, Any]:
+    data = _safe_json(value)
+    return data if isinstance(data, dict) else {}
+
+
 def _schema_properties(schema: dict[str, Any]) -> dict[str, Any]:
     props = schema.get("properties")
     return props if isinstance(props, dict) else {}
@@ -124,16 +129,15 @@ def infer_schema_from_serialized(serialized: dict[str, Any]) -> dict[str, Any]:
     for key in ("args_schema", "schema", "input_schema", "inputSchema"):
         candidate = kwargs.get(key)
         if isinstance(candidate, dict):
-            return _safe_json(candidate)
+            return _coerce_dict(candidate)
         if candidate is not None and hasattr(candidate, "model_json_schema"):
             try:
-                return _safe_json(candidate.model_json_schema())
+                return _coerce_dict(candidate.model_json_schema())
             except Exception:
                 pass
         if candidate is not None and hasattr(candidate, "schema"):
             try:
-                schema = candidate.schema()
-                return _safe_json(schema) if isinstance(schema, dict) else {}
+                return _coerce_dict(candidate.schema())
             except Exception:
                 pass
     args = serialized.get("args")
@@ -174,13 +178,8 @@ def extract_openai_tool_schemas(tools: Any) -> list[tuple[str, dict[str, Any]]]:
         name = function.get("name")
         parameters = function.get("parameters")
         if name and isinstance(parameters, dict):
-            schemas.append((str(name), _safe_json(parameters)))
+            schemas.append((str(name), _coerce_dict(parameters)))
     return schemas
-
-
-def get_active_detector() -> SchemaDriftDetector | None:
-    detector = _drift_context.get("detector")
-    return detector if isinstance(detector, SchemaDriftDetector) else None
 
 
 def record_tools_from_llm_kwargs(kwargs: dict[str, Any], *, source: str = "openai") -> None:
@@ -286,7 +285,7 @@ class SchemaDriftDetector:
         if self.db is None or self.run_id is None:
             return None
 
-        schema = _safe_json(schema) if isinstance(schema, dict) else {}
+        schema = _coerce_dict(schema) if isinstance(schema, dict) else {}
         if not schema:
             return None
 
@@ -379,6 +378,11 @@ class SchemaDriftDetector:
             lines.extend(["", "Recommendation:", recommendation])
         lines.append("═══════════════════════════════════════")
         return "\n".join(lines)
+
+
+def get_active_detector() -> SchemaDriftDetector | None:
+    detector = _drift_context.get("detector")
+    return detector if isinstance(detector, SchemaDriftDetector) else None
 
 
 def load_schema_drift_events(db: Any) -> list[dict[str, Any]]:
