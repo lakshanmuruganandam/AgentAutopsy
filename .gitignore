@@ -15,3 +15,5 @@ release-log.txt
 release-output.txt
 shell-test.txt
 build-dir-list.txt
+__pycache__/ 
+*.pyc 
