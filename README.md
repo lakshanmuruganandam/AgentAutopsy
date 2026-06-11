@@ -1,14 +1,12 @@
-# AgentAutopsy
+![AgentAutopsy](assets/logo.png)
 
-**Post-mortem debugger for AI agents — when your agent fails, this tells you exactly why.**
-
-[![AgentAutopsy CI](https://github.com/Abhisekhpatel/AgentAutopsy/actions/workflows/ci.yml/badge.svg)](https://github.com/Abhisekhpatel/AgentAutopsy/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/Abhisekhpatel/AgentAutopsy/releases)
 [![PyPI version](https://img.shields.io/pypi/v/agentautopsy?color=blue)](https://pypi.org/project/agentautopsy/)
+[![Downloads](https://static.pepy.tech/badge/agentautopsy)](https://pepy.tech/project/agentautopsy)
+[![GitHub stars](https://img.shields.io/github/stars/Abhisekhpatel/AgentAutopsy?style=social)](https://github.com/Abhisekhpatel/AgentAutopsy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
----
+The post-mortem debugger for AI agents. When your agent fails silently — AgentAutopsy tells you exactly why.
 
 ## Install
 
@@ -16,89 +14,62 @@
 pip install agentautopsy
 ```
 
----
-
 ## Quick Start
-
-**Zero config — one line instruments everything:**
 
 ```python
 import agentautopsy
-
 agentautopsy.watch()
 # your existing agent code — nothing else changes
 ```
 
-**v2.0.0 modules (optional, composable):**
-
-```python
-from agentautopsy import MCPAutopsy
-from agentautopsy import SchemaDriftDetector
-from agentautopsy import DVRReplay
-
-agentautopsy.watch()
-
-# MCP post-mortem tracing
-MCPAutopsy.start("my-mcp-server")
-
-# Schema drift detection (also enabled automatically by watch())
-detector = SchemaDriftDetector()
-detector.watch()
-
-# DVR fork and replay
-dvr = DVRReplay()
-dvr.list_runs()
-dvr.replay(run_id, from_step=3)
-dvr.fork(run_id, at_step=3, new_input="different prompt")
-```
-
-**Debug from the CLI:**
-
 ```bash
-agentautopsy runs
-agentautopsy replay <run_id>
-agentautopsy replay --run-id <run_id> --from-step 3
 agentautopsy ui
 ```
-
----
 
 ## Features
 
 ### MCP Post-Mortem Tracing
 
-Traces every MCP server call — tool name, input schema, expected schema, model response, and downstream contamination when bad output poisons later tool calls.
-
-| Before | After |
-|--------|-------|
-| MCP tool fails silently; agent hallucinates from bad JSON | **MCP FAILURE REPORT**: tool called, schema expected vs received, root cause, contaminated downstream count |
-
-```bash
-agentautopsy mcp python my_mcp_server.py
-agentautopsy.watch_mcp("my-server")  # or MCPAutopsy.start()
-```
+Traces every MCP tool call with schema validation, failure reports, and downstream contamination detection.
 
 ### Schema Drift Detector
 
-Stores tool schema baselines in SQLite. On every run, compares current schemas and flags renamed, removed, added fields and type changes — with affected agents listed.
+Compares tool schemas against SQLite baselines and alerts when fields are added, removed, renamed, or change type.
 
-| Before | After |
-|--------|-------|
-| Tool schema changes in production; agents break with no warning | **SCHEMA DRIFT DETECTED**: old vs new schema, field diff, recommendation to update definitions |
+### DVR Fork and Replay
+
+Records every step of an agent run so you can rewind, replay from any point, or fork with different input.
+
+### Swarm Tracing (50+ agents)
+
+Links parent and child agent runs with causality thread IDs and a live topology graph across large swarms.
+
+### AI Chat on your trace
+
+Ask why a run failed, which step broke, and how to fix it — directly in the Web UI against your recorded trace.
+
+### Works with LangChain, CrewAI, AutoGen, LlamaIndex
+
+Zero-config `watch()` for OpenAI and Anthropic; dedicated handlers for LangChain, LangGraph, and CrewAI.
+
+## MCPAutopsy
+
+```python
+from agentautopsy import MCPAutopsy
+
+MCPAutopsy.start("my-mcp-server")
+# or: agentautopsy.watch_mcp("my-mcp-server")
+```
+
+## SchemaDriftDetector
 
 ```python
 from agentautopsy import SchemaDriftDetector
 
-SchemaDriftDetector().watch()  # automatic when agentautopsy.watch() runs
+SchemaDriftDetector().watch()  # also enabled automatically by agentautopsy.watch()
 ```
 
-### DVR Fork and Replay
-
-Records every LLM call, tool call, input, output, timestamp, and token count. Rewind to any step, replay with different input, or fork a new branch.
-
-| Before | After |
-|--------|-------|
-| Can't reproduce the exact failure step | Replay from step N, fork with patched input, side-by-side diff of original vs replay |
+## DVRReplay
 
 ```python
 from agentautopsy import DVRReplay
@@ -108,84 +79,9 @@ dvr.replay(run_id, from_step=3)
 dvr.fork(run_id, at_step=3, new_input={"query": "fixed prompt"})
 ```
 
-### Swarm Tracing
+## Contributing
 
-Distributed causality tracing across parent/child agent runs. Blast-radius topology graph in the Web UI (`agentautopsy ui` → **View Live Topology**).
-
-| Before | After |
-|--------|-------|
-| Multi-agent failures with no link between runs | Causality thread IDs, parent/child chains, live topology of poisoned links |
-
-### AI Debug Assistant
-
-Chat against any recorded run in the Web UI — ask why it failed, what step broke, and how to fix it.
-
-### Prompt Diffing
-
-Compares prompts in the current run vs the previous run. Surfaces silent behavior changes before they become outages.
-
-| Before | After |
-|--------|-------|
-| Agent behaves differently; no idea what prompt changed | Line-by-line prompt diff between consecutive runs |
-
----
-
-## Lifecycle
-
-```
-  ┌──────┐    ┌────────┐    ┌───────┐    ┌──────────┐    ┌─────┐    ┌─────────┐
-  │ Fail │───▶│ Detect │───▶│ Trace │───▶│ Diagnose │───▶│ Fix │───▶│ Prevent │
-  └──────┘    └────────┘    └───────┘    └──────────┘    └─────┘    └─────────┘
-     │             │              │              │            │             │
-  Agent        Pinpoint       Full SQLite     AI root      Auto-fix      Schema drift
-  crashes      failure        event log       cause +      + DVR         + fix cache
-               step           locally         chat         replay
-```
-
----
-
-## Commands
-
-| Command | What it does |
-|---------|--------------|
-| `agentautopsy ui` | Open visual debugger (timeline, topology, DVR replay, schema drift) |
-| `agentautopsy fix <id>` | Auto-fix a failure |
-| `agentautopsy runs` | List all runs |
-| `agentautopsy replay <id>` | Print full event report |
-| `agentautopsy replay --run-id <id> --from-step <n>` | DVR replay from a step |
-| `agentautopsy mcp <cmd...>` | Proxy and trace an MCP server over stdio |
-| `agentautopsy agents` | List multi-agent run chains |
-| `agentautopsy stats` | Fix-cache and token stats |
-| `agentautopsy serve` | HTTP API (`POST /analyze`) |
-
----
-
-## Framework Support
-
-| Framework | Support |
-|-----------|---------|
-| OpenAI / Anthropic | Native — auto-intercepted by `watch()` |
-| LangChain | `get_callback_handler()` |
-| LangGraph | `get_langgraph_handler()` |
-| CrewAI | `get_crewai_handler()` |
-| AutoGen | Compatible via `watch()` (LLM interceptors) |
-| LlamaIndex | Compatible via `watch()` (LLM interceptors) |
-| MCP | `MCPAutopsy` + `agentautopsy mcp` proxy |
-| HTTP / httpx | Native — auto-intercepted |
-
----
-
-## What's in v2.0.0
-
-| Module | Export | Purpose |
-|--------|--------|---------|
-| MCP tracing | `MCPAutopsy`, `watch_mcp()` | MCP call interception, schema mismatch reports, contamination chain |
-| Schema drift | `SchemaDriftDetector` | Baseline schemas, drift alerts, affected agents |
-| DVR replay | `DVRReplay` | Step-level record, fork, replay, diff |
-| Swarm | `causality_thread_id`, topology UI | Distributed tracing across agent swarms |
-| Core | `watch()` | Zero-config LLM + HTTP + DVR + schema drift |
-
----
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and pull request guidelines.
 
 ## License
 
