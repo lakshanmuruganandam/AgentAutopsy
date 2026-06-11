@@ -63,11 +63,6 @@ def _safe_json(value: Any) -> Any:
         return str(value)
 
 
-def get_active_dvr() -> DVRReplay | None:
-    recorder = _dvr_context.get("recorder")
-    return recorder if isinstance(recorder, DVRReplay) else None
-
-
 class DVRReplay:
     """Record, replay, fork, and diff agent runs step-by-step."""
 
@@ -460,6 +455,11 @@ class DVRReplay:
                 lineterm="",
             )
         )
+
+
+def get_active_dvr() -> DVRReplay | None:
+    recorder = _dvr_context.get("recorder")
+    return recorder if isinstance(recorder, DVRReplay) else None
 
 
 def _step_summary(event_type: str, payload: dict[str, Any]) -> str:

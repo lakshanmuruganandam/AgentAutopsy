@@ -182,32 +182,6 @@ def extract_openai_tool_schemas(tools: Any) -> list[tuple[str, dict[str, Any]]]:
     return schemas
 
 
-def record_tools_from_llm_kwargs(kwargs: dict[str, Any], *, source: str = "openai") -> None:
-    detector = get_active_detector()
-    if detector is None:
-        return
-    for tool_name, schema in extract_openai_tool_schemas(kwargs.get("tools")):
-        detector.record_schema(tool_name, schema, source=source)
-
-
-def record_tool_from_serialized(
-    serialized: dict[str, Any],
-    *,
-    source: str,
-    tool_input: Any = None,
-    agent_name: str | None = None,
-) -> None:
-    detector = get_active_detector()
-    if detector is None:
-        return
-    tool_name = str(serialized.get("name") or "unknown_tool")
-    schema = infer_schema_from_serialized(serialized)
-    if not schema and tool_input is not None:
-        schema = schema_from_tool_input(tool_input)
-    if schema:
-        detector.record_schema(tool_name, schema, source=source, agent_name=agent_name)
-
-
 class SchemaDriftDetector:
     """Detect and log tool schema drift across agent runs."""
 
@@ -256,8 +230,11 @@ class SchemaDriftDetector:
             return None
 
     def _store_baseline(self, source: str, tool_name: str, schema: dict[str, Any]) -> None:
-        ensure_schema_tables(self.db)
-        self.db["tool_schema_baselines"].insert(
+        db = self.db
+        if db is None:
+            return
+        ensure_schema_tables(db)
+        db["tool_schema_baselines"].insert(
             {
                 "id": str(uuid.uuid4()),
                 "source": source,
@@ -383,6 +360,32 @@ class SchemaDriftDetector:
 def get_active_detector() -> SchemaDriftDetector | None:
     detector = _drift_context.get("detector")
     return detector if isinstance(detector, SchemaDriftDetector) else None
+
+
+def record_tools_from_llm_kwargs(kwargs: dict[str, Any], *, source: str = "openai") -> None:
+    detector = get_active_detector()
+    if detector is None:
+        return
+    for tool_name, schema in extract_openai_tool_schemas(kwargs.get("tools")):
+        detector.record_schema(tool_name, schema, source=source)
+
+
+def record_tool_from_serialized(
+    serialized: dict[str, Any],
+    *,
+    source: str,
+    tool_input: Any = None,
+    agent_name: str | None = None,
+) -> None:
+    detector = get_active_detector()
+    if detector is None:
+        return
+    tool_name = str(serialized.get("name") or "unknown_tool")
+    schema = infer_schema_from_serialized(serialized)
+    if not schema and tool_input is not None:
+        schema = schema_from_tool_input(tool_input)
+    if schema:
+        detector.record_schema(tool_name, schema, source=source, agent_name=agent_name)
 
 
 def load_schema_drift_events(db: Any) -> list[dict[str, Any]]:

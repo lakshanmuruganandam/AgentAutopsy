@@ -33,7 +33,7 @@ jobs:
         
     - name: Run Type Checking (Mypy)
       run: |
-        mypy src/agentautopsy/ --ignore-missing-imports
+        mypy --config-file=pyproject.toml src/agentautopsy/ --ignore-missing-imports
         
     - name: Run Security Audit (Bandit)
       run: |

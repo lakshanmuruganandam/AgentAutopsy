@@ -10,7 +10,12 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from agentautopsy.db import create_tables, get_db, insert_event, insert_run, mark_run_failed
-from agentautopsy.schema_drift import SchemaDriftDetector, _coerce_dict, get_active_detector
+from agentautopsy.schema_drift import (
+    SchemaDriftDetector,
+    _coerce_dict,
+    ensure_schema_tables,
+    get_active_detector,
+)
 
 _mcp_context: dict[str, Any] = {}
 
@@ -487,7 +492,7 @@ class MCPAutopsy:
         if server_name:
             self.server_name = server_name
         _mcp_context["autopsy"] = self
-        self._ensure_schema_table()
+        ensure_schema_tables(self.db)
         patched = _install_mcp_patches()
         if patched:
             print(

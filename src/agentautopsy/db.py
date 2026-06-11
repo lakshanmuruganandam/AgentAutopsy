@@ -8,6 +8,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlite_utils import Database
 
@@ -131,7 +132,7 @@ def insert_event(
     db: Database,
     run_id: str,
     type: str,
-    payload: dict,
+    payload: dict[str, Any],
     cassette: bytes | None = None,
     latency_ms: int | None = None,
     token_input: int | None = None,
