@@ -156,6 +156,13 @@ class AgentAutopsyLangGraphHandler(BaseCallbackHandler):
         input_str: str,
         **kwargs: Any,
     ) -> None:
+        from agentautopsy.schema_drift import record_tool_from_serialized
+
+        record_tool_from_serialized(
+            serialized,
+            source="langgraph",
+            tool_input=input_str,
+        )
         insert_event(
             self.db,
             self.run_id,

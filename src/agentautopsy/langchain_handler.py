@@ -112,13 +112,21 @@ class AgentAutopsyCallbackHandler(BaseCallbackHandler):
         input_str: str,
         **kwargs: Any,
     ) -> None:
+        tool_input = _tool_input(serialized, input_str, **kwargs)
+        from agentautopsy.schema_drift import record_tool_from_serialized
+
+        record_tool_from_serialized(
+            serialized,
+            source="langchain",
+            tool_input=tool_input,
+        )
         insert_event(
             self.db,
             self.run_id,
             "tool_call",
             {
                 "tool": serialized.get("name", "unknown_tool"),
-                "input": _tool_input(serialized, input_str, **kwargs),
+                "input": tool_input,
             },
         )
 

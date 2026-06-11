@@ -12,9 +12,11 @@ from agentautopsy.interceptor import (
 )
 from agentautopsy.mcp_handler import MCPAutopsy
 from agentautopsy.reporter import print_report
+from agentautopsy.schema_drift import SchemaDriftDetector
 
 __all__ = [
     "MCPAutopsy",
+    "SchemaDriftDetector",
     "get_callback_handler",
     "get_crewai_handler",
     "get_langgraph_handler",
@@ -93,6 +95,7 @@ def watch(
     start_interceptor(run_id, db)
     start_anthropic_interceptor(run_id, db)
     start_http_interceptor(run_id, db)
+    SchemaDriftDetector(run_id=run_id, db=db, agent_name=agent_name or "agent").watch()
 
     import sys
 

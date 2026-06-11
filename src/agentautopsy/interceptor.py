@@ -166,6 +166,9 @@ def start_interceptor(run_id: str, db: Any) -> None:
     original_create = Completions.create
 
     def create_wrapper(*args: Any, **kwargs: Any) -> Any:
+        from agentautopsy.schema_drift import record_tools_from_llm_kwargs
+
+        record_tools_from_llm_kwargs(kwargs, source="openai")
         model_name = kwargs.get("model", "unknown")
         messages_list = kwargs.get("messages", [])
         insert_event(

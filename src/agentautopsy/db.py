@@ -88,6 +88,9 @@ def create_tables(db: Database) -> None:
     )
     _ensure_events_observability_columns(db)
     _ensure_runs_agent_columns(db)
+    from agentautopsy.schema_drift import ensure_schema_tables
+
+    ensure_schema_tables(db)
 
 
 def insert_run(

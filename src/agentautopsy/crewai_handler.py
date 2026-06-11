@@ -54,6 +54,18 @@ class AgentAutopsyCrewAIHandler:
         )
 
     def on_tool_start(self, agent: str, tool: str, tool_input: Any) -> None:
+        from agentautopsy.schema_drift import get_active_detector, schema_from_tool_input
+
+        detector = get_active_detector()
+        if detector is not None:
+            schema = schema_from_tool_input(_safe_payload(tool_input))
+            if schema:
+                detector.record_schema(
+                    tool,
+                    schema,
+                    source="crewai",
+                    agent_name=agent,
+                )
         insert_event(
             self.db,
             self.run_id,

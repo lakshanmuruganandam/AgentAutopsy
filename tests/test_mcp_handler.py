@@ -8,11 +8,8 @@ import tempfile
 import unittest
 
 from agentautopsy.db import create_tables, get_db, insert_run
-from agentautopsy.mcp_handler import (
-    MCPAutopsy,
-    compare_input_to_schema,
-    diff_schemas,
-)
+from agentautopsy.mcp_handler import MCPAutopsy, compare_input_to_schema
+from agentautopsy.schema_drift import diff_schemas
 
 
 class TestMCPSchemaLogic(unittest.TestCase):

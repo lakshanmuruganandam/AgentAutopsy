@@ -10,6 +10,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from agentautopsy.db import create_tables, get_db, insert_event, insert_run, mark_run_failed
+from agentautopsy.schema_drift import SchemaDriftDetector, diff_schemas, get_active_detector
 
 _mcp_context: dict[str, Any] = {}
 
@@ -161,52 +162,6 @@ def compare_input_to_schema(
     }
 
 
-def diff_schemas(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
-    """Return schema drift details between two JSON schemas."""
-    prev_props = _schema_properties(previous)
-    curr_props = _schema_properties(current)
-    prev_required = set(previous.get("required") or [])
-    curr_required = set(current.get("required") or [])
-
-    added_fields = sorted(set(curr_props) - set(prev_props))
-    removed_fields = sorted(set(prev_props) - set(curr_props))
-    type_changes: list[dict[str, str]] = []
-    renamed_fields: list[dict[str, str]] = []
-
-    for field in sorted(set(prev_props) & set(curr_props)):
-        prev_type = str((prev_props[field] or {}).get("type") or "")
-        curr_type = str((curr_props[field] or {}).get("type") or "")
-        if prev_type and curr_type and prev_type != curr_type:
-            type_changes.append(
-                {"field": field, "from_type": prev_type, "to_type": curr_type}
-            )
-
-    for removed in removed_fields:
-        for added in added_fields:
-            if _similar_name(removed, added) >= 0.72:
-                renamed_fields.append({"from": removed, "to": added})
-
-    required_added = sorted(curr_required - prev_required)
-    required_removed = sorted(prev_required - curr_required)
-    changed = bool(
-        added_fields
-        or removed_fields
-        or type_changes
-        or renamed_fields
-        or required_added
-        or required_removed
-    )
-    return {
-        "added_fields": added_fields,
-        "removed_fields": removed_fields,
-        "renamed_fields": renamed_fields,
-        "type_changes": type_changes,
-        "required_added": required_added,
-        "required_removed": required_removed,
-        "has_drift": changed,
-    }
-
-
 class MCPAutopsy:
     """Trace MCP tool calls, schema mismatches, and downstream contamination."""
 
@@ -220,73 +175,32 @@ class MCPAutopsy:
         self._affected_agents: set[str] = set()
         self._active_agent = server_name
 
-    def _ensure_schema_table(self) -> None:
-        self.db["mcp_tool_schemas"].create(
-            {
-                "id": str,
-                "server_name": str,
-                "tool_name": str,
-                "schema_json": str,
-                "updated_at": str,
-            },
-            pk="id",
-            if_not_exists=True,
+    def _drift_detector(self) -> SchemaDriftDetector:
+        detector = get_active_detector()
+        if detector is not None and detector.run_id == self.run_id:
+            return detector
+        local = SchemaDriftDetector(
+            run_id=self.run_id,
+            db=self.db,
+            agent_name=self._active_agent,
         )
-
-    def _load_stored_schema(self, tool_name: str) -> dict[str, Any] | None:
-        if not self.db["mcp_tool_schemas"].exists():
-            return None
-        rows = list(
-            self.db["mcp_tool_schemas"].rows_where(
-                where="server_name = ? AND tool_name = ?",
-                where_args=[self.server_name, tool_name],
-                order_by="updated_at desc",
-            )
-        )
-        if not rows:
-            return None
-        try:
-            schema = json.loads(rows[0]["schema_json"])
-            return schema if isinstance(schema, dict) else None
-        except (json.JSONDecodeError, TypeError):
-            return None
-
-    def _store_schema(self, tool_name: str, schema: dict[str, Any]) -> None:
-        self._ensure_schema_table()
-        row_id = str(uuid.uuid4())
-        timestamp = datetime.now(timezone.utc).isoformat()
-        self.db["mcp_tool_schemas"].insert(
-            {
-                "id": row_id,
-                "server_name": self.server_name,
-                "tool_name": tool_name,
-                "schema_json": json.dumps(schema),
-                "updated_at": timestamp,
-            },
-            pk="id",
-        )
+        local.watch()
+        return local
 
     def register_tool_schema(self, tool_name: str, schema: dict[str, Any]) -> dict[str, Any] | None:
         """Store tool schema and return drift report if schema changed."""
         schema = _safe_json(schema) if isinstance(schema, dict) else {}
-        previous = self._load_stored_schema(tool_name)
         self._expected_schemas[tool_name] = schema
-        if previous is None:
-            self._store_schema(tool_name, schema)
+        if not schema:
             return None
-
-        drift = diff_schemas(previous, schema)
-        if not drift["has_drift"]:
-            return None
-
-        self._affected_agents.add(self._active_agent)
-        report = self.generate_schema_drift_report(
+        result = self._drift_detector().record_schema(
             tool_name,
-            previous,
             schema,
-            drift,
-            affected_agents=sorted(self._affected_agents),
+            source=f"mcp:{self.server_name}",
+            agent_name=self._active_agent,
         )
+        if result is None:
+            return None
         insert_event(
             self.db,
             self.run_id,
@@ -294,14 +208,16 @@ class MCPAutopsy:
             {
                 "server": self.server_name,
                 "tool": tool_name,
-                "drift": drift,
-                "report": report,
-                "affected_agents": sorted(self._affected_agents),
+                "drift": result.get("drift"),
+                "report": result.get("report"),
+                "affected_agents": result.get("affected_agents"),
             },
         )
-        self._store_schema(tool_name, schema)
-        print(report)
-        return {"tool": tool_name, "drift": drift, "report": report}
+        return {
+            "tool": tool_name,
+            "drift": result.get("drift"),
+            "report": result.get("report"),
+        }
 
     def on_tools_listed(self, tools_result: Any) -> None:
         for tool in _tool_list(tools_result):
@@ -310,7 +226,10 @@ class MCPAutopsy:
             self.register_tool_schema(name, schema)
 
     def get_expected_schema(self, tool_name: str) -> dict[str, Any]:
-        return self._expected_schemas.get(tool_name) or self._load_stored_schema(tool_name) or {}
+        if tool_name in self._expected_schemas:
+            return self._expected_schemas[tool_name]
+        baseline = self._drift_detector().load_baseline(f"mcp:{self.server_name}", tool_name)
+        return baseline or {}
 
     def on_tool_call(
         self,
@@ -599,6 +518,11 @@ class MCPAutopsy:
             parent_run_id=parent_run_id,
         )
         autopsy = cls(run_id, db, server_name=server_name or "mcp")
+        SchemaDriftDetector(
+            run_id=run_id,
+            db=db,
+            agent_name=agent_name or server_name or "mcp",
+        ).watch()
         autopsy.watch_mcp_server(server_name)
         if register_exit:
             atexit.register(_print_mcp_exit_summary, run_id, db)

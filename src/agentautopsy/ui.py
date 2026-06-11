@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from agentautopsy.analyzer import detect_divergence, diff_prompts
 from agentautopsy.db import get_db
+from agentautopsy.schema_drift import load_schema_drift_events
 from agentautopsy.interceptor import _http_display_path
 
 UI_SERVER_PORT = 8765
@@ -96,6 +97,18 @@ def _event_detail(
         base = f"{payload.get('tool')}: {payload.get('input')}"
     elif ev_type == "tool_result":
         base = f"output: {payload.get('output')}"
+    elif ev_type in ("schema_drift", "mcp_schema_drift"):
+        tool = payload.get("tool", "unknown")
+        drift = payload.get("drift") or {}
+        changes: list[str] = []
+        if drift.get("added_fields"):
+            changes.append(f"+{len(drift['added_fields'])}")
+        if drift.get("removed_fields"):
+            changes.append(f"-{len(drift['removed_fields'])}")
+        if drift.get("type_changes"):
+            changes.append(f"~{len(drift['type_changes'])} types")
+        summary = ", ".join(changes) if changes else "schema changed"
+        base = f"{tool}: {summary}"
     elif payload:
         base = json.dumps(payload, default=str)
     else:
@@ -335,10 +348,12 @@ def _build_html(
     runs: list[dict[str, Any]],
     runs_data: dict[str, dict[str, Any]],
     agent_chains: list[dict[str, Any]],
+    schema_drift_events: list[dict[str, Any]] | None = None,
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
     agent_chains_json = json.dumps(agent_chains)
+    schema_drift_json = json.dumps(schema_drift_events or [])
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
     fix_api_base_json = json.dumps(FIX_API_BASE)
 
@@ -1077,6 +1092,40 @@ def _build_html(
     .event.error {{ border-left-color: var(--red); }}
     .event.error .type {{ color: var(--red); }}
     .event.http_error {{ border-left-color: var(--red); }}
+    .event.schema_drift {{ border-left-color: #fb923c; }}
+    .event.schema_drift .type {{ color: #fb923c; }}
+    .event.mcp_schema_drift {{ border-left-color: #fb923c; }}
+    .event.mcp_schema_drift .type {{ color: #fb923c; }}
+    .drift-banner {{
+      margin: 0 1.5rem 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(251, 146, 60, 0.35);
+      background: rgba(251, 146, 60, 0.12);
+      color: #fdba74;
+      font-size: 0.9rem;
+    }}
+    .drift-banner strong {{ color: #fb923c; }}
+    .drift-list {{ list-style: none; padding: 0; margin: 0; }}
+    .drift-item {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid #fb923c;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }}
+    .drift-item h3 {{ margin: 0 0 0.35rem; font-size: 1rem; }}
+    .drift-item .meta {{ color: var(--muted); font-size: 0.82rem; margin-bottom: 0.5rem; }}
+    .drift-item pre {{
+      margin: 0.5rem 0 0;
+      padding: 0.75rem;
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }}
     .event.http_error .type {{ color: var(--red); }}
     .event.llm_response {{ border-left-color: var(--purple); }}
     .event.llm_response .type {{ color: var(--purple); }}
@@ -1343,15 +1392,18 @@ def _build_html(
       <p class="tagline">When your agent fails, this tells you exactly why.</p>
     </div>
   </header>
+  <div id="drift-banner" class="drift-banner" style="display:none"></div>
   <div class="layout">
     <aside class="sidebar">
       <div class="sidebar-tabs">
         <button class="sidebar-tab active" id="tab-runs" type="button">Runs</button>
         <button class="sidebar-tab" id="tab-graph" type="button">Agent Graph</button>
+        <button class="sidebar-tab" id="tab-drift" type="button">Schema Drift</button>
       </div>
       <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
       <div id="chain-list" style="display:none"></div>
+      <div id="drift-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
@@ -1361,6 +1413,7 @@ def _build_html(
     const runs = {runs_json};
     const runsData = {data_json};
     const agentChains = {agent_chains_json};
+    const schemaDriftEvents = {schema_drift_json};
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -1372,6 +1425,9 @@ def _build_html(
     const detail = document.getElementById("detail");
     const tabRuns = document.getElementById("tab-runs");
     const tabGraph = document.getElementById("tab-graph");
+    const tabDrift = document.getElementById("tab-drift");
+    const driftList = document.getElementById("drift-list");
+    const driftBanner = document.getElementById("drift-banner");
     const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
     let activeView = "runs";
@@ -1601,9 +1657,61 @@ def _build_html(
       activeView = view;
       tabRuns.classList.toggle("active", view === "runs");
       tabGraph.classList.toggle("active", view === "graph");
+      tabDrift.classList.toggle("active", view === "drift");
       runList.style.display = view === "runs" ? "flex" : "none";
       chainList.style.display = view === "graph" ? "block" : "none";
-      sidebarHead.textContent = view === "runs" ? "Runs" : "Agent Chains";
+      driftList.style.display = view === "drift" ? "block" : "none";
+      if (view === "runs") {{
+        sidebarHead.textContent = "Runs";
+      }} else if (view === "graph") {{
+        sidebarHead.textContent = "Agent Chains";
+      }} else {{
+        sidebarHead.textContent = "Schema Drift";
+      }}
+    }}
+
+    function renderSchemaDriftView() {{
+      if (!schemaDriftEvents.length) {{
+        detail.innerHTML = '<div class="empty">No schema drift detected yet.</div>';
+        return;
+      }}
+      let html = '<div class="run-body"><div class="run-main">';
+      html += '<div class="run-header"><h2>Schema Drift</h2>';
+      html += '<p class="run-sub">Tool and function definition changes detected across runs.</p></div>';
+      html += '<ul class="drift-list">';
+      schemaDriftEvents.forEach((event) => {{
+        const payload = event.payload || {{}};
+        const tool = payload.tool || "unknown";
+        const source = payload.source || payload.server || "unknown";
+        const agents = (payload.affected_agents || []).join(", ") || "unknown";
+        html += '<li class="drift-item">';
+        html += '<h3>' + escapeHtml(tool) + '</h3>';
+        html += '<div class="meta">Source: ' + escapeHtml(source) + ' · Run: <code>' + escapeHtml((event.run_id || "").slice(0, 12)) + '...</code> · ' + escapeHtml(event.timestamp || "") + '</div>';
+        html += '<div class="meta">Affected agents: ' + escapeHtml(agents) + '</div>';
+        if (payload.recommendation) {{
+          html += '<div class="meta"><strong>Recommendation:</strong> ' + escapeHtml(payload.recommendation) + '</div>';
+        }}
+        if (payload.report) {{
+          html += '<pre>' + escapeHtml(payload.report) + '</pre>';
+        }} else {{
+          html += '<pre>' + escapeHtml(formatPayload(payload)) + '</pre>';
+        }}
+        html += '</li>';
+      }});
+      html += '</ul></div></div>';
+      detail.innerHTML = html;
+    }}
+
+    function renderDriftBanner() {{
+      if (!schemaDriftEvents.length) {{
+        driftBanner.style.display = "none";
+        return;
+      }}
+      driftBanner.style.display = "block";
+      driftBanner.innerHTML =
+        '<strong>Schema drift detected:</strong> ' +
+        schemaDriftEvents.length +
+        ' tool schema change(s). Open the <strong>Schema Drift</strong> tab for details.';
     }}
 
     function selectAgentNode(runId) {{
@@ -2305,6 +2413,11 @@ def _build_html(
         setSidebarView("graph");
         renderChainList();
       }});
+      tabDrift.addEventListener("click", () => {{
+        setSidebarView("drift");
+        renderSchemaDriftView();
+      }});
+      renderDriftBanner();
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
         btn.className = "run-item" + (index === 0 ? " active" : "");
@@ -2432,7 +2545,8 @@ def start_ui() -> Path:
     db = get_db()
     runs, runs_data = _load_data(db)
     agent_chains = build_agent_chains(runs, runs_data)
-    html = _build_html(runs, runs_data, agent_chains)
+    schema_drift_events = load_schema_drift_events(db)
+    html = _build_html(runs, runs_data, agent_chains, schema_drift_events)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)
