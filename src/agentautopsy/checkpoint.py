@@ -20,32 +20,46 @@ from agentautopsy.db import get_db, insert_event
 T = TypeVar("T", bound=BaseModel)
 
 def _get_contract_hash(contract: type[BaseModel]) -> str:
-    """Generate a hash capturing schema shape and normalized custom validator logic."""
+    """Generate a hash capturing schema shape, normalized logic, and rules version."""
     schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
+    
+    # 1. Manual Version Override (for complex external dependency drift)
+    rules_version = str(getattr(contract, "__rules_version__", "1.0"))
+    
     ast_dump = ""
     try:
         source_code = inspect.getsource(contract)
         tree = ast.parse(source_code)
         ast_dump = ast.dump(tree)
         
-        # Pull in helpers referenced by the validator from the same module
-        called_names = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        # Find all variables/functions referenced inside the class
+        loaded_names = {
+            node.id 
+            for node in ast.walk(tree) 
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+        }
         
         module = inspect.getmodule(contract)
-        if module and called_names:
+        if module and loaded_names:
             try:
                 mod_src = inspect.getsource(module)
                 mod_tree = ast.parse(mod_src)
+                
+                # 2. Automatically capture Top-Level Helpers and Global Constants!
                 for node in mod_tree.body:
-                    if isinstance(node, ast.FunctionDef) and node.name in called_names:
+                    if isinstance(node, ast.FunctionDef) and node.name in loaded_names:
                         ast_dump += ast.dump(node)
+                    elif isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id in loaded_names:
+                                ast_dump += ast.dump(node)
             except Exception:
                 pass
                 
     except Exception:
         pass
         
-    combined = schema_json + ast_dump
+    combined = schema_json + ast_dump + rules_version
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:8]
 
 class ContractCheckpointer:

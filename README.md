@@ -120,11 +120,12 @@ from agentautopsy import ContractCheckpointer
 from pydantic import BaseModel
 
 class OutputSchema(BaseModel):
+    __rules_version__ = "1.0"  # Optional: bump to force cache invalidation on external dependency drift
     summary: str
 
 checkpointer = ContractCheckpointer(run_id)
 # Fails immediately if invalid, otherwise saves state to SQLite for resuming.
-# Automatically normalizes and hashes the AST (Abstract Syntax Tree) of the validator and its helpers to detect logic drift without false positives from comments/whitespace!
+# Automatically normalizes and hashes the AST (Abstract Syntax Tree) of the validator, global constants, and helper functions to detect logic drift without false positives!
 validated = checkpointer.enforce("step_1", raw_output, OutputSchema)
 ```
 
