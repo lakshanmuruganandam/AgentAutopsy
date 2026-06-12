@@ -8,6 +8,7 @@ Pydantic contracts and checkpoints valid states to SQLite to allow resuming.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from typing import Any, Callable, TypeVar
 
@@ -16,6 +17,17 @@ from pydantic import BaseModel, ValidationError
 from agentautopsy.db import get_db, insert_event
 
 T = TypeVar("T", bound=BaseModel)
+
+def _get_contract_hash(contract: type[BaseModel]) -> str:
+    """Generate a hash capturing both schema shape and custom validator logic."""
+    schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
+    source_code = ""
+    try:
+        source_code = inspect.getsource(contract)
+    except (TypeError, OSError):
+        pass
+    combined = schema_json + source_code
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:8]
 
 class ContractCheckpointer:
     """Enforce contracts on agent steps and checkpoint valid state."""
@@ -50,8 +62,7 @@ class ContractCheckpointer:
             print(f"Validation Error: {e}")
             raise RuntimeError(f"Contract failure at {step_name}") from e
 
-        schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
-        schema_hash = hashlib.sha256(schema_json.encode()).hexdigest()[:8]
+        schema_hash = _get_contract_hash(contract)
 
         # Checkpoint successful state
         insert_event(
@@ -88,8 +99,7 @@ class ContractCheckpointer:
                 payload = json.loads(row.get("payload", "{}"))
                 if payload.get("step") == step_name:
                     if contract is not None:
-                        schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
-                        current_hash = hashlib.sha256(schema_json.encode()).hexdigest()[:8]
+                        current_hash = _get_contract_hash(contract)
                         if payload.get("schema_hash") and payload.get("schema_hash") != current_hash:
                             print(f"\\n[AgentAutopsy] ⚠️ Schema drift detected for checkpoint '{step_name}'.")
                             print(f"Checkpoint hash: {payload.get('schema_hash')} | Current hash: {current_hash}")

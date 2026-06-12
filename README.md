@@ -123,7 +123,8 @@ class OutputSchema(BaseModel):
     summary: str
 
 checkpointer = ContractCheckpointer(run_id)
-# Fails immediately if invalid, otherwise saves state to SQLite for resuming
+# Fails immediately if invalid, otherwise saves state to SQLite for resuming.
+# Automatically hashes the raw Python source code to detect @field_validator logic drift!
 validated = checkpointer.enforce("step_1", raw_output, OutputSchema)
 ```
 
