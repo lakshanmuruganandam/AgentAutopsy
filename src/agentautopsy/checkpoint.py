@@ -7,6 +7,7 @@ Pydantic contracts and checkpoints valid states to SQLite to allow resuming.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import inspect
 import json
@@ -19,14 +20,32 @@ from agentautopsy.db import get_db, insert_event
 T = TypeVar("T", bound=BaseModel)
 
 def _get_contract_hash(contract: type[BaseModel]) -> str:
-    """Generate a hash capturing both schema shape and custom validator logic."""
+    """Generate a hash capturing schema shape and normalized custom validator logic."""
     schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
-    source_code = ""
+    ast_dump = ""
     try:
         source_code = inspect.getsource(contract)
-    except (TypeError, OSError):
+        tree = ast.parse(source_code)
+        ast_dump = ast.dump(tree)
+        
+        # Pull in helpers referenced by the validator from the same module
+        called_names = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        
+        module = inspect.getmodule(contract)
+        if module and called_names:
+            try:
+                mod_src = inspect.getsource(module)
+                mod_tree = ast.parse(mod_src)
+                for node in mod_tree.body:
+                    if isinstance(node, ast.FunctionDef) and node.name in called_names:
+                        ast_dump += ast.dump(node)
+            except Exception:
+                pass
+                
+    except Exception:
         pass
-    combined = schema_json + source_code
+        
+    combined = schema_json + ast_dump
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:8]
 
 class ContractCheckpointer:
