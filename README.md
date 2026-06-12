@@ -8,68 +8,90 @@
 
 The post-mortem debugger for AI agents. When your agent fails silently — AgentAutopsy tells you exactly why.
 
-## Install
+## Lifecycle
+
+```
+Install  →  Watch  →  Fail  →  Trace  →  Replay  →  Fix
+   │          │        │         │          │        │
+ pip      watch()   silent   SQLite     rewind    auto-fix
+install              failure   log      + fork    + cache
+```
+
+| Stage | What happens |
+|-------|--------------|
+| **Install** | `pip install agentautopsy` — no cloud account, no config file |
+| **Watch** | `agentautopsy.watch()` intercepts LLM, HTTP, MCP, and tool calls |
+| **Fail** | Agent errors or returns bad output; run is marked in local SQLite |
+| **Trace** | Full event timeline: prompts, tools, schemas, tokens, timestamps |
+| **Replay** | Rewind to any step, fork with new input, diff original vs replay |
+| **Fix** | Root-cause report, AI chat on trace, verified fix cached for next run |
+
+## Commands
+
+| What you're doing | Command | Key principle |
+|-------------------|---------|---------------|
+| Zero config setup | `agentautopsy.watch()` | One import catches everything |
+| View trace UI | `agentautopsy ui` | Visual timeline of every step |
+| Replay a failure | `agentautopsy replay --run-id <id> --from-step <n>` | Rewind to exact failure point |
+| Detect schema drift | `SchemaDriftDetector().watch()` | Catch API changes before production |
+| Trace MCP servers | `MCPAutopsy().watch_mcp_server()` | Every MCP call recorded |
+| Fork and fix | `DVRReplay().fork(run_id, at_step=3)` | Branch from any step |
+
+## Quick Start
 
 ```bash
 pip install agentautopsy
 ```
 
-## Quick Start
-
 ```python
 import agentautopsy
+
 agentautopsy.watch()
 # your existing agent code — nothing else changes
 ```
 
-```bash
-agentautopsy ui
-```
-
 ## Features
 
-### MCP Post-Mortem Tracing
+| Feature | What It Does | Use When |
+|---------|--------------|----------|
+| **MCP Post-Mortem Tracing** | Traces every MCP server call, shows bad data source | Using Claude Code, Cursor, any MCP client |
+| **Schema Drift Detector** | Detects renamed/removed/added fields automatically | After any API or tool upgrade |
+| **DVR Fork and Replay** | Rewind, replay, fork from any step | Debugging production failures |
+| **Swarm Tracing** | Causality tracing across 50+ agents | Multi-agent workflows |
+| **AI Chat on Trace** | Ask questions about your failure | When root cause is unclear |
+| **Prompt Diffing** | Compare runs side by side | Optimizing agent behavior |
 
-Traces every MCP tool call with schema validation, failure reports, and downstream contamination detection.
+## Framework Support
 
-### Schema Drift Detector
+Works with: LangChain, LangGraph, CrewAI, AutoGen, LlamaIndex, OpenAI, Anthropic, MCP
 
-Compares tool schemas against SQLite baselines and alerts when fields are added, removed, renamed, or change type.
+## Module Quick Start
 
-### DVR Fork and Replay
+### Basic
 
-Records every step of an agent run so you can rewind, replay from any point, or fork with different input.
+```python
+import agentautopsy
 
-### Swarm Tracing (50+ agents)
+agentautopsy.watch()
+```
 
-Links parent and child agent runs with causality thread IDs and a live topology graph across large swarms.
-
-### AI Chat on your trace
-
-Ask why a run failed, which step broke, and how to fix it — directly in the Web UI against your recorded trace.
-
-### Works with LangChain, CrewAI, AutoGen, LlamaIndex
-
-Zero-config `watch()` for OpenAI and Anthropic; dedicated handlers for LangChain, LangGraph, and CrewAI.
-
-## MCPAutopsy
+### MCP
 
 ```python
 from agentautopsy import MCPAutopsy
 
-MCPAutopsy.start("my-mcp-server")
-# or: agentautopsy.watch_mcp("my-mcp-server")
+MCPAutopsy().watch_mcp_server("my-mcp-server")
 ```
 
-## SchemaDriftDetector
+### Schema Drift
 
 ```python
 from agentautopsy import SchemaDriftDetector
 
-SchemaDriftDetector().watch()  # also enabled automatically by agentautopsy.watch()
+SchemaDriftDetector().watch()
 ```
 
-## DVRReplay
+### DVR Replay
 
 ```python
 from agentautopsy import DVRReplay
@@ -81,7 +103,7 @@ dvr.fork(run_id, at_step=3, new_input={"query": "fixed prompt"})
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and pull request guidelines.
+Fork the repo, open a PR with tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and CI commands.
 
 ## License
 
