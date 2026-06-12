@@ -2252,6 +2252,39 @@ def _build_html(
       }}
     }}
 
+    async function generateTest(runId, button) {{
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Generating...";
+      setAutofixStatus("Generating regression test from this failure...", "");
+      try {{
+        const response = await fetch(fixApiBase + "/api/evals/generate", {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{ run_id: runId }}),
+        }});
+        const result = await response.json();
+        if (!response.ok) {{
+          throw new Error(result.error || "Generate test failed");
+        }}
+        if (result.path) {{
+          setAutofixStatus("Regression test generated:\\n" + result.path, "success");
+          button.textContent = "Test Generated!";
+        }} else {{
+          setAutofixStatus(result.message || "No failure found for this run.", "error");
+          button.textContent = "No failure";
+        }}
+      }} catch (error) {{
+        setAutofixStatus(error.message || "Generate test failed", "error");
+        button.textContent = "Failed";
+      }} finally {{
+        setTimeout(() => {{
+          button.textContent = originalLabel;
+          button.disabled = false;
+        }}, 2200);
+      }}
+    }}
+
     function replayRun(runId) {{
       if (replayTimer) {{
         clearTimeout(replayTimer);
@@ -2521,6 +2554,7 @@ def _build_html(
       html += '<button class="replay-btn" type="button" onclick="event.stopPropagation(); replayRun(\\'' + runId + '\\')">▶ Replay Run</button>';
       html += '<button class="share-btn" id="share-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); shareRun(\\'' + runId + '\\', this)">Share Run</button>';
       html += '<button class="autofix-btn" id="autofix-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); autoFixRun(\\'' + runId + '\\', this)">Auto Fix</button>';
+      html += '<button class="autofix-btn" id="genTest-btn-' + escapeHtml(runId) + '" type="button" onclick="event.stopPropagation(); generateTest(\\'' + runId + '\\', this)">Generate Test</button>';
       html += '</div>';
       html += '<div class="autofix-status" id="autofix-status"></div>';
       html += '<div class="replay-counter" id="replay-counter-' + escapeHtml(runId) + '"></div>';
@@ -2542,6 +2576,9 @@ def _build_html(
         }}
         if (ev.type === "mcp_tool_call" || ev.type === "mcp_response" || ev.type === "mcp_initialize") {{
           html += buildMcpViewer(ev);
+        }}
+        if (ev.type === "error" || ev.type === "http_error") {{
+          html += '<button class="autofix-btn" type="button" onclick="event.stopPropagation(); generateTest(\\'' + runId + '\\', this)">Generate Test</button>';
         }}
         html += '<div class="inspect-label">Payload</div>';
         html += '<pre>' + escapeHtml(formatPayload(ev.payload)) + '</pre>';
@@ -2750,6 +2787,44 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, result)
+            return
+
+        if path == "/api/evals/generate":
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length) if content_length else b"{}"
+            try:
+                body = json.loads(raw_body.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send_json(400, {"error": "Invalid JSON body"})
+                return
+            if not isinstance(body, dict):
+                self._send_json(400, {"error": "JSON body must be an object"})
+                return
+            run_id = str(body.get("run_id") or "")
+            if not run_id:
+                self._send_json(400, {"error": "run_id is required"})
+                return
+
+            from agentautopsy.db import get_db as _get_db
+            from agentautopsy.eval_generator import EvalGenerator
+
+            generator = EvalGenerator(db=_get_db())
+            try:
+                generated_path = generator.generate_from_run(run_id)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(500, {"error": str(exc)})
+                return
+            if generated_path:
+                self._send_json(200, {"run_id": run_id, "path": generated_path})
+            else:
+                self._send_json(
+                    200,
+                    {
+                        "run_id": run_id,
+                        "path": None,
+                        "message": "No failure found for this run.",
+                    },
+                )
             return
 
         if not path.startswith("/api/fix/"):

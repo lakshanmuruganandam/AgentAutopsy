@@ -13,10 +13,12 @@ from agentautopsy.interceptor import (
 from agentautopsy.mcp_handler import MCPAutopsy
 from agentautopsy.reporter import print_report
 from agentautopsy.dvr_replay import DVRReplay
+from agentautopsy.eval_generator import EvalGenerator
 from agentautopsy.schema_drift import SchemaDriftDetector
 
 __all__ = [
     "DVRReplay",
+    "EvalGenerator",
     "MCPAutopsy",
     "SchemaDriftDetector",
     "get_callback_handler",
@@ -99,6 +101,7 @@ def watch(
     start_http_interceptor(run_id, db)
     SchemaDriftDetector(run_id=run_id, db=db, agent_name=agent_name or "agent").watch()
     DVRReplay(db=db, run_id=run_id).watch()
+    EvalGenerator(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
 
     import sys
 
@@ -167,12 +170,21 @@ def watch(
 
         mark_run_failed(db, run_id)
 
+        from agentautopsy.eval_generator import generate_eval_for_run
+
+        eval_path = generate_eval_for_run(run_id, db)
+
         time.sleep(0.1)
         print("\n\033[1;38;5;196m❌ [AgentAutopsy] Critical Failure Intercepted\033[0m")
         time.sleep(0.1)
         print(f"\033[38;5;244m▶ Error: \033[1;38;5;196m{result['error_type']}\033[0m")
         time.sleep(0.1)
         print(f"\033[38;5;244m▶ Trace: \033[38;5;196m{result['message']}\033[0m")
+        if eval_path:
+            time.sleep(0.1)
+            print(
+                f"\033[38;5;244m▶ Eval:  \033[1;38;5;82mRegression test generated → {eval_path}\033[0m"
+            )
 
         cached = lookup_fix(db, result["error_type"], result["message"])
         if cached:

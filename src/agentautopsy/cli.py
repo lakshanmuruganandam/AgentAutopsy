@@ -19,6 +19,7 @@ Commands:
   replay --run-id <id> --from-step <n>   DVR replay from a step
   share <run_id>    Export a run trace to a shareable JSON file
   fix <run_id>      Apply an automated fix for a failed run
+  generate-evals    Generate pytest tests from all recorded failures
   stats             Show fix cache statistics
   serve             Start HTTP API for Monadix (POST /analyze)
   ui                Open the web UI in your browser
@@ -31,6 +32,8 @@ Examples:
   agentautopsy share abc-123-def
   agentautopsy fix abc-123-def
   agentautopsy fix abc-123-def --create-pr
+  agentautopsy generate-evals
+  agentautopsy generate-evals --run-id abc-123-def
   agentautopsy prune [days]
   agentautopsy stats
   agentautopsy serve
@@ -182,6 +185,27 @@ def main() -> None:
                 print(f"PR creation failed: {exc}", file=sys.stderr)
                 sys.exit(1)
         sys.exit(0 if result.get("success") else 1)
+
+    if cmd == "generate-evals":
+        from agentautopsy.eval_generator import EvalGenerator
+
+        generator = EvalGenerator(db=db)
+        if "--run-id" in argv:
+            run_id = argv[argv.index("--run-id") + 1]
+            path = generator.generate_from_run(run_id)
+            if path:
+                print(f"Generated regression test: {path}")
+            else:
+                print(f"No failure found for run {run_id}; nothing generated.")
+            return
+        paths = generator.generate_all()
+        if not paths:
+            print("No recorded failures found. Nothing to generate.")
+            return
+        print(f"Generated {len(paths)} regression test(s):")
+        for path in paths:
+            print(f"  {path}")
+        return
 
     if cmd == "stats":
         setup_cache(db)
