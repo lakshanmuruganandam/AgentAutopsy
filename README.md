@@ -36,6 +36,7 @@ install              failure   log      + fork    + cache
 | Detect schema drift | `SchemaDriftDetector().watch()` | Catch API changes before production |
 | Trace MCP servers | `MCPAutopsy().watch_mcp_server()` | Every MCP call recorded |
 | Fork and fix | `DVRReplay().fork(run_id, at_step=3)` | Branch from any step |
+| Generate tests from failures | `agentautopsy generate-evals` | Never fix the same bug twice |
 
 ## Quick Start
 
@@ -60,6 +61,7 @@ agentautopsy.watch()
 | **Swarm Tracing** | Causality tracing across 50+ agents | Multi-agent workflows |
 | **AI Chat on Trace** | Ask questions about your failure | When root cause is unclear |
 | **Prompt Diffing** | Compare runs side by side | Optimizing agent behavior |
+| **Automatic Eval Generation** | Generates pytest test cases from every failure automatically | When you want to make sure the same failure never happens again |
 
 ## Framework Support
 
@@ -99,6 +101,15 @@ from agentautopsy import DVRReplay
 dvr = DVRReplay()
 dvr.replay(run_id, from_step=3)
 dvr.fork(run_id, at_step=3, new_input={"query": "fixed prompt"})
+```
+
+### Auto Eval Generation
+
+```python
+from agentautopsy import EvalGenerator
+
+gen = EvalGenerator()
+gen.generate_all()  # generates tests from all recorded failures
 ```
 
 ## Contributing
