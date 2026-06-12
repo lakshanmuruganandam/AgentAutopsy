@@ -7,6 +7,7 @@ Pydantic contracts and checkpoints valid states to SQLite to allow resuming.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any, Callable, TypeVar
 
@@ -49,6 +50,9 @@ class ContractCheckpointer:
             print(f"Validation Error: {e}")
             raise RuntimeError(f"Contract failure at {step_name}") from e
 
+        schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
+        schema_hash = hashlib.sha256(schema_json.encode()).hexdigest()[:8]
+
         # Checkpoint successful state
         insert_event(
             self.db,
@@ -57,13 +61,19 @@ class ContractCheckpointer:
             {
                 "step": step_name,
                 "contract": contract.__name__,
+                "schema_hash": schema_hash,
                 "state": validated.model_dump(mode="json")
             }
         )
         return validated
 
-    def get_last_checkpoint(self, step_name: str) -> dict[str, Any] | None:
-        """Resume state from the last successful checkpoint of a given step."""
+    def get_last_checkpoint(self, step_name: str, contract: type[T] | None = None) -> dict[str, Any] | None:
+        """Resume state from the last successful checkpoint of a given step.
+        
+        If a contract is provided, validates that the checkpoint was saved
+        with the exact same schema version. If the schema has drifted, 
+        forces a clean re-run from this step.
+        """
         if not self.db["events"].exists():
             return None
             
@@ -77,6 +87,14 @@ class ContractCheckpointer:
             try:
                 payload = json.loads(row.get("payload", "{}"))
                 if payload.get("step") == step_name:
+                    if contract is not None:
+                        schema_json = json.dumps(contract.model_json_schema(), sort_keys=True)
+                        current_hash = hashlib.sha256(schema_json.encode()).hexdigest()[:8]
+                        if payload.get("schema_hash") and payload.get("schema_hash") != current_hash:
+                            print(f"\\n[AgentAutopsy] ⚠️ Schema drift detected for checkpoint '{step_name}'.")
+                            print(f"Checkpoint hash: {payload.get('schema_hash')} | Current hash: {current_hash}")
+                            print("Forcing clean revalidation from this step.")
+                            return None
                     return payload.get("state")
             except Exception:
                 continue
