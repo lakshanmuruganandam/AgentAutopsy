@@ -17,3 +17,7 @@ shell-test.txt
 build-dir-list.txt
 __pycache__/ 
 *.pyc 
+node_modules/
+.env
+*.db-shm
+*.db-wal

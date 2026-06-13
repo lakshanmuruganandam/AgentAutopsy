@@ -1,6 +1,0 @@
-openai
-anthropic
-sqlite-utils
-sqlite-vec
-httpx
-requests
