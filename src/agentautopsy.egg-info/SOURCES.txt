@@ -9,7 +9,9 @@ src/agentautopsy/auto.py
 src/agentautopsy/autofix.py
 src/agentautopsy/cache.py
 src/agentautopsy/cassette.py
+src/agentautopsy/checkpoint.py
 src/agentautopsy/cli.py
+src/agentautopsy/context_monitor.py
 src/agentautopsy/crewai_handler.py
 src/agentautopsy/db.py
 src/agentautopsy/detector.py
@@ -37,6 +39,7 @@ src/agentautopsy.egg-info/top_level.txt
 tests/test_analyzer.py
 tests/test_api.py
 tests/test_autofix.py
+tests/test_context_monitor.py
 tests/test_crewai.py
 tests/test_day7.py
 tests/test_dvr_replay.py
