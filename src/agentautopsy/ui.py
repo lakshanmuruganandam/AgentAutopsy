@@ -352,6 +352,7 @@ def _build_html(
     schema_drift_events: list[dict[str, Any]] | None = None,
     dvr_data: dict[str, Any] | None = None,
     loop_data: dict[str, Any] | None = None,
+    context_data: dict[str, Any] | None = None,
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
@@ -359,6 +360,7 @@ def _build_html(
     schema_drift_json = json.dumps(schema_drift_events or [])
     dvr_json = json.dumps(dvr_data or {"runs": [], "timelines": {}, "sessions": []})
     loop_json = json.dumps(loop_data or {"events": [], "cost_per_run": []})
+    context_json = json.dumps(context_data or {"by_run": {}})
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
     fix_api_base_json = json.dumps(FIX_API_BASE)
 
@@ -1448,6 +1450,7 @@ def _build_html(
         <button class="sidebar-tab" id="tab-drift" type="button">Schema Drift</button>
         <button class="sidebar-tab" id="tab-dvr" type="button">Replay</button>
         <button class="sidebar-tab" id="tab-loops" type="button">Loops</button>
+        <button class="sidebar-tab" id="tab-context" type="button">Context</button>
       </div>
       <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
@@ -1455,6 +1458,7 @@ def _build_html(
       <div id="drift-list" style="display:none"></div>
       <div id="dvr-run-list" style="display:none"></div>
       <div id="loops-list" style="display:none"></div>
+      <div id="context-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
@@ -1467,6 +1471,7 @@ def _build_html(
     const schemaDriftEvents = {schema_drift_json};
     const dvrData = {dvr_json};
     const loopData = {loop_json};
+    const contextData = {context_json};
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -1481,9 +1486,11 @@ def _build_html(
     const tabDrift = document.getElementById("tab-drift");
     const tabDvr = document.getElementById("tab-dvr");
     const tabLoops = document.getElementById("tab-loops");
+    const tabContext = document.getElementById("tab-context");
     const driftList = document.getElementById("drift-list");
     const dvrRunList = document.getElementById("dvr-run-list");
     const loopsList = document.getElementById("loops-list");
+    const contextList = document.getElementById("context-list");
     const driftBanner = document.getElementById("drift-banner");
     const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
@@ -1719,11 +1726,13 @@ def _build_html(
       tabDrift.classList.toggle("active", view === "drift");
       tabDvr.classList.toggle("active", view === "dvr");
       tabLoops.classList.toggle("active", view === "loops");
+      tabContext.classList.toggle("active", view === "context");
       runList.style.display = view === "runs" ? "flex" : "none";
       chainList.style.display = view === "graph" ? "block" : "none";
       driftList.style.display = view === "drift" ? "block" : "none";
       dvrRunList.style.display = view === "dvr" ? "block" : "none";
       loopsList.style.display = view === "loops" ? "block" : "none";
+      contextList.style.display = view === "context" ? "block" : "none";
       if (view === "runs") {{
         sidebarHead.textContent = "Runs";
       }} else if (view === "graph") {{
@@ -1732,6 +1741,8 @@ def _build_html(
         sidebarHead.textContent = "Schema Drift";
       }} else if (view === "loops") {{
         sidebarHead.textContent = "Loops & Cost";
+      }} else if (view === "context") {{
+        sidebarHead.textContent = "Context Window";
       }} else {{
         sidebarHead.textContent = "DVR Runs";
       }}
@@ -2327,6 +2338,96 @@ def _build_html(
       detail.innerHTML = '<div class="empty" style="padding:40px">Select a run from the Runs tab to view its loop detail.</div>';
     }}
 
+    function contextLevelColor(level) {{
+      if (level === "critical") return "var(--red)";
+      if (level === "warn") return "var(--yellow)";
+      return "var(--green)";
+    }}
+
+    function renderContextView() {{
+      const byRun = (contextData && contextData.by_run) ? contextData.by_run : {{}};
+      const runIds = Object.keys(byRun);
+      let html = '<div style="padding:12px">';
+
+      if (runIds.length === 0) {{
+        html += '<div style="color:var(--muted);font-size:13px;padding:8px 0">No context snapshots recorded yet. Run <code>agentautopsy.watch()</code> first.</div>';
+        html += '</div>';
+        contextList.innerHTML = html;
+        return;
+      }}
+
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">CONTEXT WINDOW USAGE PER RUN</div>';
+
+      runIds.forEach(rid => {{
+        const info = byRun[rid];
+        const steps = info.steps || [];
+        const pct = info.latest_pct || 0;
+        const level = info.alert_level || "ok";
+        const color = contextLevelColor(level);
+        const barPct = Math.min(100, pct).toFixed(1);
+        const label = pct >= 90 ? "CRITICAL" : pct >= 70 ? "WARN" : "OK";
+
+        html += '<div style="margin-bottom:12px;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">';
+
+        // Header row
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+        html += '<div>';
+        html += '<span style="font-size:12px;font-weight:600;color:var(--text)">' + escapeHtml(info.agent_name || "agent") + '</span>';
+        html += '<span style="font-size:11px;color:var(--muted);margin-left:8px">' + escapeHtml((rid || "").slice(0,12)) + '...</span>';
+        html += '</div>';
+        html += '<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:' + color + '22;color:' + color + '">' + label + '</span>';
+        html += '</div>';
+
+        // Fuel gauge bar
+        html += '<div style="font-size:22px;font-weight:700;color:' + color + ';margin-bottom:4px">' + pct.toFixed(1) + '% used</div>';
+        html += '<div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:4px;overflow:hidden">';
+        html += '<div style="height:8px;border-radius:4px;background:' + color + ';width:' + barPct + '%"></div></div>';
+
+        const latest = steps.length ? steps[steps.length - 1] : null;
+        if (latest) {{
+          html += '<div style="font-size:11px;color:var(--muted)">' + (latest.tokens_used || 0).toLocaleString() + ' / ' + (info.context_limit || 128000).toLocaleString() + ' tokens · model: ' + escapeHtml(info.model || "") + ' · ' + steps.length + ' step(s)</div>';
+        }}
+
+        // Per-step breakdown mini table
+        if (steps.length > 0) {{
+          html += '<details style="margin-top:8px">';
+          html += '<summary style="font-size:11px;color:var(--cyan);cursor:pointer">Per-step breakdown</summary>';
+          html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">';
+          html += '<tr style="color:var(--muted)"><th style="text-align:left;padding:2px 4px">Step</th><th style="text-align:right;padding:2px 4px">Tokens</th><th style="text-align:right;padding:2px 4px">%</th><th style="text-align:left;padding:2px 4px">Level</th></tr>';
+          steps.forEach(s => {{
+            const sc = contextLevelColor(s.alert_level || "ok");
+            html += '<tr style="border-top:1px solid var(--border)">';
+            html += '<td style="padding:2px 4px">' + (s.step || 0) + '</td>';
+            html += '<td style="padding:2px 4px;text-align:right">' + (s.tokens_used || 0).toLocaleString() + '</td>';
+            html += '<td style="padding:2px 4px;text-align:right;color:' + sc + '">' + (s.pct_used || 0).toFixed(1) + '%</td>';
+            html += '<td style="padding:2px 4px;color:' + sc + '">' + escapeHtml(s.alert_level || "ok") + '</td>';
+            html += '</tr>';
+            if (s.truncation_suspected) {{
+              html += '<tr><td colspan="4" style="padding:2px 4px;color:var(--yellow);font-size:10px">⚠ Silent truncation suspected</td></tr>';
+            }}
+          }});
+          html += '</table>';
+          html += '</details>';
+        }}
+
+        // Suggestions
+        const allSugs = steps.flatMap(s => s.suggestions || []);
+        const uniqSugs = [...new Set(allSugs)];
+        if (uniqSugs.length > 0) {{
+          html += '<div style="margin-top:8px;font-size:11px;color:var(--muted)">SUGGESTIONS</div>';
+          uniqSugs.slice(0, 4).forEach(sug => {{
+            html += '<div style="font-size:11px;color:var(--cyan);margin-top:3px">→ ' + escapeHtml(sug) + '</div>';
+          }});
+        }}
+
+        html += '</div>';
+      }});
+
+      html += '</div>';
+      contextList.innerHTML = html;
+      detail.innerHTML = '<div class="empty" style="padding:40px">Select a run from the Runs tab to view its full context timeline.</div>';
+    }}
+
     async function generateTest(runId, button) {{
       const originalLabel = button.textContent;
       button.disabled = true;
@@ -2717,6 +2818,10 @@ def _build_html(
         setSidebarView("loops");
         renderLoopsView();
       }});
+      tabContext.addEventListener("click", () => {{
+        setSidebarView("context");
+        renderContextView();
+      }});
       renderDriftBanner();
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
@@ -2826,6 +2931,20 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
                     "cost_per_run": cost_per_run(_db),
                 },
             )
+            return
+        if path == "/api/context":
+            from agentautopsy.context_monitor import load_context_ui_data
+            from agentautopsy.db import get_db as _get_db
+
+            _db = _get_db()
+            self._send_json(200, load_context_ui_data(_db))
+            return
+        if path.startswith("/api/context/"):
+            from agentautopsy.context_monitor import load_context_snapshots
+            from agentautopsy.db import get_db as _get_db
+
+            _run_id = path.removeprefix("/api/context/").strip("/")
+            self._send_json(200, {"run_id": _run_id, "steps": load_context_snapshots(_get_db(), _run_id)})
             return
         if path.startswith("/api/dvr/timeline/"):
             from agentautopsy.db import get_db as _get_db
@@ -2956,7 +3075,10 @@ def start_ui() -> Path:
     from agentautopsy.loop_detector import cost_per_run, load_loop_events
 
     loop_data = {"events": load_loop_events(db), "cost_per_run": cost_per_run(db)}
-    html = _build_html(runs, runs_data, agent_chains, schema_drift_events, dvr_data, loop_data)
+    from agentautopsy.context_monitor import load_context_ui_data
+
+    context_data = load_context_ui_data(db)
+    html = _build_html(runs, runs_data, agent_chains, schema_drift_events, dvr_data, loop_data, context_data)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)

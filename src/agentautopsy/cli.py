@@ -21,6 +21,7 @@ Commands:
   fix <run_id>      Apply an automated fix for a failed run
   generate-evals    Generate pytest tests from all recorded failures
   loops             Show all detected loops from recorded runs
+  context           Show context window usage across all runs
   stats             Show fix cache statistics
   serve             Start HTTP API for Monadix (POST /analyze)
   ui                Open the web UI in your browser
@@ -37,6 +38,8 @@ Examples:
   agentautopsy generate-evals --run-id abc-123-def
   agentautopsy loops
   agentautopsy loops --run-id abc-123-def
+  agentautopsy context
+  agentautopsy context --run-id abc-123-def
   agentautopsy prune [days]
   agentautopsy stats
   agentautopsy serve
@@ -245,6 +248,63 @@ def main() -> None:
                 print(
                     f"{rid:<14} {rc['agent_name']:<18} {rc['status']:<12} "
                     f"{rc['total_tokens']:>8} ${rc['cost_usd']:>7.4f}"
+                )
+        return
+
+    if cmd == "context":
+        from agentautopsy.context_monitor import load_context_snapshots, load_context_ui_data
+
+        run_id_arg = None
+        if "--run-id" in argv:
+            run_id_arg = argv[argv.index("--run-id") + 1]
+
+        if run_id_arg:
+            snaps = load_context_snapshots(db, run_id_arg)
+            if not snaps:
+                print(f"No context snapshots found for run {run_id_arg}.")
+                return
+            print(f"\nContext window usage for run {run_id_arg}")
+            print(f"{'STEP':>5}  {'MODEL':<20} {'TOKENS':>8}  {'LIMIT':>8}  {'%':>7}  LEVEL")
+            print("─" * 72)
+            for s in snaps:
+                level_color = (
+                    "\033[38;5;196m" if s["alert_level"] == "critical"
+                    else "\033[38;5;226m" if s["alert_level"] == "warn"
+                    else "\033[38;5;82m"
+                )
+                print(
+                    f"{s['step']:>5}  {s['model']:<20} {s['tokens_used']:>8}  "
+                    f"{s['context_limit']:>8}  {s['pct_used']:>6.1f}%  "
+                    f"{level_color}{s['alert_level']}\033[0m"
+                )
+                if s.get("truncation_suspected"):
+                    print(f"       \033[38;5;208m⚠ Silent truncation suspected at step {s['step']}\033[0m")
+                for sug in s.get("suggestions") or []:
+                    print(f"       \033[38;5;244m→ {sug}\033[0m")
+        else:
+            ui_data = load_context_ui_data(db)
+            by_run = ui_data.get("by_run", {})
+            if not by_run:
+                print("No context data recorded yet. Run agentautopsy.watch() first.")
+                return
+            print(f"\n{'RUN':<14} {'AGENT':<18} {'MODEL':<18} {'TOKENS':>8}  {'LIMIT':>8}  {'%':>7}  ALERT")
+            print("─" * 90)
+            for rid, info in by_run.items():
+                snaps = info.get("steps") or []
+                if not snaps:
+                    continue
+                latest = snaps[-1]
+                level_color = (
+                    "\033[38;5;196m" if info["alert_level"] == "critical"
+                    else "\033[38;5;226m" if info["alert_level"] == "warn"
+                    else "\033[38;5;82m"
+                )
+                short_rid = rid[:12] + "..."
+                print(
+                    f"{short_rid:<14} {info['agent_name']:<18} {info['model']:<18} "
+                    f"{latest['tokens_used']:>8}  {info['context_limit']:>8}  "
+                    f"{info['latest_pct']:>6.1f}%  "
+                    f"{level_color}{info['alert_level']}\033[0m"
                 )
         return
 

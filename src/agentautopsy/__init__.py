@@ -16,8 +16,10 @@ from agentautopsy.dvr_replay import DVRReplay
 from agentautopsy.eval_generator import EvalGenerator
 from agentautopsy.loop_detector import LoopDetector
 from agentautopsy.schema_drift import SchemaDriftDetector
+from agentautopsy.context_monitor import ContextMonitor
 
 __all__ = [
+    "ContextMonitor",
     "DVRReplay",
     "EvalGenerator",
     "LoopDetector",
@@ -105,6 +107,7 @@ def watch(
     DVRReplay(db=db, run_id=run_id).watch()
     EvalGenerator(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
     LoopDetector(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
+    ContextMonitor(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
 
     import sys
 
@@ -164,6 +167,10 @@ def watch(
             mark_run_completed(db, run_id)
             loop_det = get_active_detector()
             loop_stats = loop_det.current_stats() if loop_det else {}
+            from agentautopsy.context_monitor import get_active_monitor
+
+            ctx_mon = get_active_monitor()
+            ctx_pct = ctx_mon.current_pct() if ctx_mon else 0.0
             print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
             time.sleep(0.1)
             print("\033[1;38;5;82m✅ [AgentAutopsy] Analysis Complete\033[0m")
@@ -177,6 +184,12 @@ def watch(
                 tokens = loop_stats.get("total_tokens", 0)
                 print(
                     f"\033[38;5;244m▶ Cost:   \033[38;5;82m${cost:.4f}\033[38;5;244m  Tokens: {tokens}\033[0m"
+                )
+                time.sleep(0.1)
+            if ctx_pct:
+                ctx_color = "82" if ctx_pct < 70 else ("226" if ctx_pct < 90 else "196")
+                print(
+                    f"\033[38;5;244m▶ Context: \033[38;5;{ctx_color}m{ctx_pct:.1f}% of window used\033[0m"
                 )
                 time.sleep(0.1)
             print(
