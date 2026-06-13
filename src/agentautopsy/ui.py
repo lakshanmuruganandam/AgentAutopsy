@@ -351,12 +351,14 @@ def _build_html(
     agent_chains: list[dict[str, Any]],
     schema_drift_events: list[dict[str, Any]] | None = None,
     dvr_data: dict[str, Any] | None = None,
+    loop_data: dict[str, Any] | None = None,
 ) -> str:
     runs_json = json.dumps(runs)
     data_json = json.dumps(runs_data)
     agent_chains_json = json.dumps(agent_chains)
     schema_drift_json = json.dumps(schema_drift_events or [])
     dvr_json = json.dumps(dvr_data or {"runs": [], "timelines": {}, "sessions": []})
+    loop_json = json.dumps(loop_data or {"events": [], "cost_per_run": []})
     api_key_json = json.dumps("AGENTAUTOPSY_API_KEY_PLACEHOLDER")
     fix_api_base_json = json.dumps(FIX_API_BASE)
 
@@ -1445,12 +1447,14 @@ def _build_html(
         <button class="sidebar-tab" id="tab-graph" type="button">Agent Graph</button>
         <button class="sidebar-tab" id="tab-drift" type="button">Schema Drift</button>
         <button class="sidebar-tab" id="tab-dvr" type="button">Replay</button>
+        <button class="sidebar-tab" id="tab-loops" type="button">Loops</button>
       </div>
       <div class="sidebar-head" id="sidebar-head">Runs</div>
       <div id="run-list"></div>
       <div id="chain-list" style="display:none"></div>
       <div id="drift-list" style="display:none"></div>
       <div id="dvr-run-list" style="display:none"></div>
+      <div id="loops-list" style="display:none"></div>
     </aside>
     <main class="detail" id="detail">
       <div class="empty">Select a run to view its event timeline.</div>
@@ -1462,6 +1466,7 @@ def _build_html(
     const agentChains = {agent_chains_json};
     const schemaDriftEvents = {schema_drift_json};
     const dvrData = {dvr_json};
+    const loopData = {loop_json};
     const anthropicApiKey = {api_key_json};
     const anthropicApiKeyConfigured =
       anthropicApiKey && anthropicApiKey !== "AGENTAUTOPSY_API_KEY_PLACEHOLDER";
@@ -1475,8 +1480,10 @@ def _build_html(
     const tabGraph = document.getElementById("tab-graph");
     const tabDrift = document.getElementById("tab-drift");
     const tabDvr = document.getElementById("tab-dvr");
+    const tabLoops = document.getElementById("tab-loops");
     const driftList = document.getElementById("drift-list");
     const dvrRunList = document.getElementById("dvr-run-list");
+    const loopsList = document.getElementById("loops-list");
     const driftBanner = document.getElementById("drift-banner");
     const sidebarHead = document.getElementById("sidebar-head");
     let replayTimer = null;
@@ -1711,16 +1718,20 @@ def _build_html(
       tabGraph.classList.toggle("active", view === "graph");
       tabDrift.classList.toggle("active", view === "drift");
       tabDvr.classList.toggle("active", view === "dvr");
+      tabLoops.classList.toggle("active", view === "loops");
       runList.style.display = view === "runs" ? "flex" : "none";
       chainList.style.display = view === "graph" ? "block" : "none";
       driftList.style.display = view === "drift" ? "block" : "none";
       dvrRunList.style.display = view === "dvr" ? "block" : "none";
+      loopsList.style.display = view === "loops" ? "block" : "none";
       if (view === "runs") {{
         sidebarHead.textContent = "Runs";
       }} else if (view === "graph") {{
         sidebarHead.textContent = "Agent Chains";
       }} else if (view === "drift") {{
         sidebarHead.textContent = "Schema Drift";
+      }} else if (view === "loops") {{
+        sidebarHead.textContent = "Loops & Cost";
       }} else {{
         sidebarHead.textContent = "DVR Runs";
       }}
@@ -2252,6 +2263,70 @@ def _build_html(
       }}
     }}
 
+    function loopTypeColor(loopType) {{
+      if (loopType.includes("exceeded") || loopType.includes("recursion")) return "var(--red)";
+      if (loopType.includes("warning")) return "var(--yellow)";
+      return "var(--cyan)";
+    }}
+
+    function renderLoopsView() {{
+      const events = loopData.events || [];
+      const costRows = loopData.cost_per_run || [];
+      let html = '<div style="padding:12px">';
+
+      // Live cost meter banner
+      const totalCost = costRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
+      const totalTokens = costRows.reduce((s, r) => s + (r.total_tokens || 0), 0);
+      const costPct = Math.min(100, totalCost / 1.0 * 100);
+      const meterColor = costPct >= 100 ? "var(--red)" : costPct >= 80 ? "var(--yellow)" : "var(--green)";
+      html += '<div style="margin-bottom:16px;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">';
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">CUMULATIVE COST METER</div>';
+      html += '<div style="font-size:22px;font-weight:700;color:' + meterColor + '">$' + totalCost.toFixed(4) + '</div>';
+      html += '<div style="margin-top:6px;height:6px;background:var(--border);border-radius:3px">';
+      html += '<div style="height:6px;border-radius:3px;background:' + meterColor + ';width:' + costPct.toFixed(1) + '%"></div></div>';
+      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + totalTokens.toLocaleString() + ' total tokens · ' + costPct.toFixed(1) + '% of $1.00 kill threshold</div>';
+      html += '</div>';
+
+      // Loop events list
+      if (events.length === 0) {{
+        html += '<div style="color:var(--muted);font-size:13px;padding:8px 0">No loop events recorded — your agents are behaving.</div>';
+      }} else {{
+        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">DETECTED LOOPS (' + events.length + ')</div>';
+        events.forEach(ev => {{
+          const color = loopTypeColor(ev.loop_type || "");
+          const killedBadge = ev.killed ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px">KILLED</span>' : '';
+          html += '<div style="margin-bottom:8px;padding:10px 12px;background:var(--surface);border-radius:6px;border:1px solid ' + color + '33">';
+          html += '<div style="display:flex;align-items:center;gap:8px">';
+          html += '<span style="font-size:11px;font-weight:600;color:' + color + ';text-transform:uppercase">' + escapeHtml(ev.loop_type || "") + '</span>' + killedBadge;
+          html += '</div>';
+          html += '<div style="font-size:12px;color:var(--text);margin-top:4px">' + escapeHtml(ev.trigger_label || "") + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">Step ' + (ev.trigger_step || 0) + ' · ' + (ev.total_tokens || 0).toLocaleString() + ' tokens · $' + Number(ev.total_cost_usd || 0).toFixed(4) + ' · run ' + escapeHtml((ev.run_id || "").slice(0,12)) + '...</div>';
+          html += '</div>';
+        }});
+      }}
+
+      // Per-run cost table
+      if (costRows.length > 0) {{
+        html += '<div style="font-size:12px;color:var(--muted);margin:16px 0 8px">COST PER RUN</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="color:var(--muted)"><th style="text-align:left;padding:4px 6px">Run</th><th style="text-align:left;padding:4px 6px">Agent</th><th style="text-align:right;padding:4px 6px">Tokens</th><th style="text-align:right;padding:4px 6px">Cost</th></tr>';
+        costRows.forEach(r => {{
+          const costColor = r.cost_usd >= 1.0 ? "var(--red)" : r.cost_usd >= 0.8 ? "var(--yellow)" : "var(--text)";
+          html += '<tr style="border-top:1px solid var(--border)">';
+          html += '<td style="padding:4px 6px;color:var(--muted)">' + escapeHtml((r.run_id || "").slice(0,12)) + '...</td>';
+          html += '<td style="padding:4px 6px">' + escapeHtml(r.agent_name || "agent") + '</td>';
+          html += '<td style="padding:4px 6px;text-align:right">' + (r.total_tokens || 0).toLocaleString() + '</td>';
+          html += '<td style="padding:4px 6px;text-align:right;color:' + costColor + ';font-weight:600">$' + Number(r.cost_usd || 0).toFixed(4) + '</td>';
+          html += '</tr>';
+        }});
+        html += '</table>';
+      }}
+
+      html += '</div>';
+      loopsList.innerHTML = html;
+      detail.innerHTML = '<div class="empty" style="padding:40px">Select a run from the Runs tab to view its loop detail.</div>';
+    }}
+
     async function generateTest(runId, button) {{
       const originalLabel = button.textContent;
       button.disabled = true;
@@ -2638,6 +2713,10 @@ def _build_html(
         renderDvrRunList();
         renderDvrReplayView();
       }});
+      tabLoops.addEventListener("click", () => {{
+        setSidebarView("loops");
+        renderLoopsView();
+      }});
       renderDriftBanner();
       runs.forEach((run, index) => {{
         const btn = document.createElement("button");
@@ -2734,6 +2813,19 @@ class _UIRequestHandler(BaseHTTPRequestHandler):
             from agentautopsy.db import get_db as _get_db
 
             self._send_json(200, load_dvr_ui_data(_get_db()))
+            return
+        if path == "/api/loops":
+            from agentautopsy.db import get_db as _get_db
+            from agentautopsy.loop_detector import cost_per_run, load_loop_events
+
+            _db = _get_db()
+            self._send_json(
+                200,
+                {
+                    "events": load_loop_events(_db),
+                    "cost_per_run": cost_per_run(_db),
+                },
+            )
             return
         if path.startswith("/api/dvr/timeline/"):
             from agentautopsy.db import get_db as _get_db
@@ -2861,7 +2953,10 @@ def start_ui() -> Path:
     agent_chains = build_agent_chains(runs, runs_data)
     schema_drift_events = load_schema_drift_events(db)
     dvr_data = load_dvr_ui_data(db)
-    html = _build_html(runs, runs_data, agent_chains, schema_drift_events, dvr_data)
+    from agentautopsy.loop_detector import cost_per_run, load_loop_events
+
+    loop_data = {"events": load_loop_events(db), "cost_per_run": cost_per_run(db)}
+    html = _build_html(runs, runs_data, agent_chains, schema_drift_events, dvr_data, loop_data)
     output_path = Path.cwd() / "agentautopsy_report.html"
     output_path.write_text(html, encoding="utf-8")
     server = _start_ui_server(html)

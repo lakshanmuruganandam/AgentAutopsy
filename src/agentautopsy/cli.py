@@ -20,6 +20,7 @@ Commands:
   share <run_id>    Export a run trace to a shareable JSON file
   fix <run_id>      Apply an automated fix for a failed run
   generate-evals    Generate pytest tests from all recorded failures
+  loops             Show all detected loops from recorded runs
   stats             Show fix cache statistics
   serve             Start HTTP API for Monadix (POST /analyze)
   ui                Open the web UI in your browser
@@ -34,6 +35,8 @@ Examples:
   agentautopsy fix abc-123-def --create-pr
   agentautopsy generate-evals
   agentautopsy generate-evals --run-id abc-123-def
+  agentautopsy loops
+  agentautopsy loops --run-id abc-123-def
   agentautopsy prune [days]
   agentautopsy stats
   agentautopsy serve
@@ -205,6 +208,44 @@ def main() -> None:
         print(f"Generated {len(paths)} regression test(s):")
         for path in paths:
             print(f"  {path}")
+        return
+
+    if cmd == "loops":
+        from agentautopsy.loop_detector import cost_per_run, load_loop_events
+
+        filter_run = None
+        if "--run-id" in argv:
+            filter_run = argv[argv.index("--run-id") + 1]
+
+        events = load_loop_events(db)
+        if filter_run:
+            events = [e for e in events if e["run_id"] == filter_run]
+
+        if not events:
+            print("No loop events recorded.")
+        else:
+            print(f"{'TYPE':<22} {'RUN':<14} {'STEP':>5} {'TOKENS':>8} {'COST':>9}  LABEL")
+            print("─" * 90)
+            for ev in events:
+                rid = ev["run_id"][:12] + "..."
+                killed_marker = " [killed]" if ev["killed"] else ""
+                print(
+                    f"{ev['loop_type']:<22} {rid:<14} {ev['trigger_step']:>5} "
+                    f"{ev['total_tokens']:>8} ${ev['total_cost_usd']:>7.4f}  "
+                    f"{ev['trigger_label']}{killed_marker}"
+                )
+
+        print()
+        runs_cost = cost_per_run(db)
+        if runs_cost:
+            print(f"{'RUN':<14} {'AGENT':<18} {'STATUS':<12} {'TOKENS':>8} {'COST':>9}")
+            print("─" * 72)
+            for rc in runs_cost:
+                rid = rc["run_id"][:12] + "..."
+                print(
+                    f"{rid:<14} {rc['agent_name']:<18} {rc['status']:<12} "
+                    f"{rc['total_tokens']:>8} ${rc['cost_usd']:>7.4f}"
+                )
         return
 
     if cmd == "stats":

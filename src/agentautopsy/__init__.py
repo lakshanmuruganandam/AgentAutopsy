@@ -14,11 +14,13 @@ from agentautopsy.mcp_handler import MCPAutopsy
 from agentautopsy.reporter import print_report
 from agentautopsy.dvr_replay import DVRReplay
 from agentautopsy.eval_generator import EvalGenerator
+from agentautopsy.loop_detector import LoopDetector
 from agentautopsy.schema_drift import SchemaDriftDetector
 
 __all__ = [
     "DVRReplay",
     "EvalGenerator",
+    "LoopDetector",
     "MCPAutopsy",
     "SchemaDriftDetector",
     "get_callback_handler",
@@ -102,6 +104,7 @@ def watch(
     SchemaDriftDetector(run_id=run_id, db=db, agent_name=agent_name or "agent").watch()
     DVRReplay(db=db, run_id=run_id).watch()
     EvalGenerator(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
+    LoopDetector(db=db, run_id=run_id, agent_name=agent_name or "agent").watch()
 
     import sys
 
@@ -109,14 +112,21 @@ def watch(
 
     def _autopsy_excepthook(exc_type, exc_value, exc_traceback):
         from agentautopsy.db import insert_event
+        from agentautopsy.loop_detector import LoopKillException, record_call_event
 
+        # Feed the exception itself as an error event so LoopDetector sees it
+        record_call_event(
+            "error",
+            {"error_type": exc_type.__name__, "message": str(exc_value)},
+        )
         insert_event(
             db,
             run_id,
             "error",
             {"error_type": exc_type.__name__, "message": str(exc_value)},
         )
-        _original_excepthook(exc_type, exc_value, exc_traceback)
+        if not issubclass(exc_type, LoopKillException):
+            _original_excepthook(exc_type, exc_value, exc_traceback)
 
     sys.excepthook = _autopsy_excepthook
     import time
@@ -149,8 +159,11 @@ def watch(
         result = detect_failure(run_id, db)
         if not result["failed"]:
             from agentautopsy.db import mark_run_completed
+            from agentautopsy.loop_detector import get_active_detector
 
             mark_run_completed(db, run_id)
+            loop_det = get_active_detector()
+            loop_stats = loop_det.current_stats() if loop_det else {}
             print("\n\033[38;5;39m" + "━" * 60 + "\033[0m")
             time.sleep(0.1)
             print("\033[1;38;5;82m✅ [AgentAutopsy] Analysis Complete\033[0m")
@@ -159,6 +172,13 @@ def watch(
                 f"\033[38;5;244m▶ Run \033[38;5;141m{run_id}\033[38;5;244m executed flawlessly.\033[0m"
             )
             time.sleep(0.1)
+            if loop_stats:
+                cost = loop_stats.get("total_cost_usd", 0)
+                tokens = loop_stats.get("total_tokens", 0)
+                print(
+                    f"\033[38;5;244m▶ Cost:   \033[38;5;82m${cost:.4f}\033[38;5;244m  Tokens: {tokens}\033[0m"
+                )
+                time.sleep(0.1)
             print(
                 "\033[38;5;244m▶ Type \033[1;37magentautopsy ui\033[38;5;244m in your terminal to view the trace graph.\033[0m"
             )
